@@ -350,49 +350,23 @@
     let currentSession = null;
 
     window.startCustomAR = async function (modelUrl) {
-      // ── Load model with Three.js ──
-      const dracoLoader = new DRACOLoader();
-      dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/libs/draco/');
-      const gltfLoader = new GLTFLoader();
-      gltfLoader.setDRACODecoder(dracoLoader);
-
-      guideText.textContent = 'Loading model for AR…';
+      // ── Request XR session FIRST while user gesture is still active ──
       overlay.classList.add('active');
+      guideText.textContent = 'Starting AR…';
 
-      let gltf;
+      let session;
       try {
-        gltf = await gltfLoader.loadAsync(modelUrl);
+        session = await navigator.xr.requestSession('immersive-ar', {
+          optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor'],
+          domOverlay: { root: overlay },
+        });
       } catch (err) {
         overlay.classList.remove('active');
-        throw new Error('Could not load model for AR');
+        throw new Error('WebXR session failed: ' + (err.message || err));
       }
+      currentSession = session;
 
-      const model = gltf.scene;
-
-      // Compute bounding box — center horizontally, sit bottom on floor
-      const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z);
-
-      // Scale so the model is about 0.4m tall (table-top miniature)
-      const desiredSize = 0.4;
-      const scaleFactor = desiredSize / maxDim;
-      model.scale.setScalar(scaleFactor);
-
-      // Offset so bottom is at Y=0 and centered on XZ
-      model.position.set(
-        -center.x * scaleFactor,
-        -box.min.y * scaleFactor,
-        -center.z * scaleFactor
-      );
-
-      // Wrap in a group for placement transforms
-      const modelGroup = new THREE.Group();
-      modelGroup.add(model);
-      modelGroup.visible = false;
-
-      // ── Three.js scene ──
+      // ── Three.js scene (set up while XR session is live) ──
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
 
@@ -401,19 +375,17 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
 
+      renderer.xr.setReferenceSpaceType('local-floor');
+      await renderer.xr.setSession(session);
+
+      // Hide model-viewer, show AR overlay
+      viewer.style.display = 'none';
+
       // Lighting
       scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.2));
       const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
       dirLight.position.set(0.5, 1, 0.3);
       scene.add(dirLight);
-
-      // Shadow plane (subtle shadow under the model)
-      const shadowGeo = new THREE.PlaneGeometry(2, 2);
-      const shadowMat = new THREE.ShadowMaterial({ opacity: 0.3 });
-      const shadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
-      shadowPlane.rotation.x = -Math.PI / 2;
-      shadowPlane.visible = false;
-      scene.add(shadowPlane);
 
       // Reticle (ring on detected floor)
       const reticle = new THREE.Mesh(
@@ -424,51 +396,83 @@
       reticle.visible = false;
       scene.add(reticle);
 
+      // Model group (added after model loads)
+      const modelGroup = new THREE.Group();
+      modelGroup.visible = false;
       scene.add(modelGroup);
 
-      // ── XR Session ──
-      let hitTestSource = null;
       let placed = false;
-      let localFloorSpace = null;
+      let modelLoaded = false;
 
-      const session = await navigator.xr.requestSession('immersive-ar', {
-        requiredFeatures: ['hit-test'],
-        optionalFeatures: ['dom-overlay', 'local-floor'],
-        domOverlay: { root: overlay },
-      });
-      currentSession = session;
+      // ── Set up hit-test (optional — some devices don't support it) ──
+      let hitTestSource = null;
+      try {
+        const viewerRefSpace = await session.requestReferenceSpace('viewer');
+        hitTestSource = await session.requestHitTestSource({ space: viewerRefSpace });
+        guideText.textContent = 'Move phone slowly to scan the floor';
+      } catch (e) {
+        guideText.textContent = 'Tap to place model';
+      }
 
-      renderer.xr.setReferenceSpaceType('local-floor');
-      await renderer.xr.setSession(session);
+      // ── Load model with Three.js (in parallel with AR session) ──
+      const dracoLoader = new DRACOLoader();
+      dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/libs/draco/');
+      const gltfLoader = new GLTFLoader();
+      gltfLoader.setDRACODecoder(dracoLoader);
 
-      // Hide model-viewer, show AR overlay
-      viewer.style.display = 'none';
-      overlay.classList.add('active');
-      guideText.textContent = 'Point at the floor and move slowly';
+      try {
+        const gltf = await gltfLoader.loadAsync(modelUrl);
+        const model = gltf.scene;
 
-      // Set up hit-test source
-      const viewerRefSpace = await session.requestReferenceSpace('viewer');
-      hitTestSource = await session.requestHitTestSource({ space: viewerRefSpace });
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+
+        const desiredSize = 0.4;
+        const scaleFactor = desiredSize / maxDim;
+        model.scale.setScalar(scaleFactor);
+
+        model.position.set(
+          -center.x * scaleFactor,
+          -box.min.y * scaleFactor,
+          -center.z * scaleFactor
+        );
+
+        modelGroup.add(model);
+        modelLoaded = true;
+        if (!hitTestSource) {
+          guideText.textContent = 'Tap anywhere to place model';
+        }
+      } catch (err) {
+        guideText.textContent = 'Model load failed — tap X to exit';
+      }
 
       // ── Tap to place ──
       session.addEventListener('select', function () {
-        if (reticle.visible && !placed) {
-          // Place model at reticle position
+        if (!modelLoaded || placed) return;
+
+        if (reticle.visible) {
           const pos = new THREE.Vector3();
           pos.setFromMatrixPosition(reticle.matrix);
           modelGroup.position.copy(pos);
-          modelGroup.visible = true;
-          placed = true;
-          reticle.visible = false;
-          shadowPlane.position.copy(pos);
-          shadowPlane.visible = true;
-
-          guideText.textContent = 'Pinch to resize · One finger to rotate';
-          setTimeout(function () {
-            guideText.parentElement.style.opacity = '0';
-            guideText.parentElement.style.transition = 'opacity 1s ease';
-          }, 4000);
+        } else {
+          // No hit-test: place 1.5m in front of camera, on estimated floor
+          const refSpace = renderer.xr.getReferenceSpace();
+          const pose = renderer.xr.getCamera().matrixWorld;
+          const forward = new THREE.Vector3(0, 0, -1.5).applyMatrix4(pose);
+          modelGroup.position.set(forward.x, forward.y - 1.3, forward.z);
         }
+
+        modelGroup.visible = true;
+        placed = true;
+        reticle.visible = false;
+
+        guideText.textContent = 'Pinch to resize · Drag to rotate';
+        setTimeout(function () {
+          guideText.parentElement.style.opacity = '0';
+          guideText.parentElement.style.transition = 'opacity 1s ease';
+        }, 4000);
       });
 
       // ── Touch gestures (on dom-overlay) ──
@@ -501,14 +505,12 @@
         const keys = Object.keys(activeTouches);
 
         if (keys.length === 2 && pinchStartDist > 0 && placed) {
-          // Pinch to scale
           const a = activeTouches[keys[0]], b = activeTouches[keys[1]];
           const dist = Math.hypot(b.x - a.x, b.y - a.y);
           const ratio = dist / pinchStartDist;
           const s = Math.max(0.05, Math.min(10, pinchStartScale * ratio));
           modelGroup.scale.setScalar(s);
         } else if (keys.length === 1 && placed) {
-          // One finger rotate
           const dx = activeTouches[keys[0]].x - lastTouchX;
           modelGroup.rotation.y += dx * 0.008;
           lastTouchX = activeTouches[keys[0]].x;
@@ -551,7 +553,6 @@
           renderer.dispose();
           dracoLoader.dispose();
 
-          // Restore model-viewer preview
           viewer.style.display = '';
           overlay.classList.remove('active');
           guideText.parentElement.style.opacity = '';
