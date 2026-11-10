@@ -1,0 +1,14 @@
+node_modules/
+dist/
+desktop/renderer/dist/
+*.pre-optimize
+*.backup
+
+# Large model files — keep in LFS or download separately
+models/*.glb
+models/*.usdz
+imports/
+
+# OS files
+.DS_Store
+Thumbs.db
