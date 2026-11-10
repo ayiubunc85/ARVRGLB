@@ -1,10 +1,11 @@
 const { app, BrowserWindow, powerSaveBlocker, ipcMain } = require('electron');
 const path = require('path');
-const { startServer, stopServer, getServerUrl, getNetworkMode, onIpChange } = require('./server');
+const { startServer, stopServer, getServerUrl, getHttpUrl, getNetworkMode, onIpChange } = require('./server');
 
 let mainWindow;
 let powerBlockerId;
 let serverPort;
+let serverHttpsPort;
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -37,15 +38,20 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  // Prevent laptop sleep while server is active
   powerBlockerId = powerSaveBlocker.start('prevent-app-suspension');
 
-  // Start the local LAN server (auto-finds available port)
-  const { port } = await startServer(3456);
-  serverPort = port;
+  const result = await startServer(3456);
+  serverPort = result.port;
+  serverHttpsPort = result.httpsPort;
 
   const network = getNetworkMode();
-  console.log(`AR server running at ${getServerUrl()}`);
+  console.log(`HTTP server: ${getHttpUrl()}`);
+  if (serverHttpsPort) {
+    console.log(`HTTPS server: ${getServerUrl()} (for phones / AR)`);
+    console.log('Phones will see a certificate warning on first visit — tap "Advanced" → "Proceed" to continue.');
+  } else {
+    console.log('WARNING: HTTPS not available. AR on phones may not work.');
+  }
   console.log(`Network mode: ${network.mode} (${network.interfaceName})`);
 
   if (network.mode === 'offline') {
@@ -53,7 +59,6 @@ app.whenReady().then(async () => {
     console.log('Connect to WiFi or enable a mobile hotspot.');
   }
 
-  // Watch for IP changes and notify the renderer
   onIpChange(({ oldIp, newIp, network }) => {
     console.log(`IP changed: ${oldIp} → ${newIp} (${network.mode})`);
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -61,13 +66,14 @@ app.whenReady().then(async () => {
     }
   });
 
-  // IPC: renderer can request server info
   ipcMain.handle('get-server-info', () => {
     const net = getNetworkMode();
     return {
       ip: net.ip,
       port: serverPort,
+      httpsPort: serverHttpsPort,
       url: getServerUrl(),
+      httpUrl: getHttpUrl(),
       networkMode: net.mode,
       interfaceName: net.interfaceName,
     };

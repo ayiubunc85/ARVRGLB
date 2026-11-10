@@ -2,14 +2,19 @@ const express = require('express');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const http = require('http');
+const https = require('https');
 const optimizer = require('./optimizer');
 const converter = require('./converter');
 const multer = require('multer');
 
-let serverInstance = null;
-let currentPort = 3456;
+let httpServer = null;
+let httpsServer = null;
+let currentHttpPort = 3456;
+let currentHttpsPort = 3457;
 
-// Categorize network interfaces to detect hotspot vs normal WiFi
+// ── Network detection ──
+
 function getNetworkMode() {
   const interfaces = os.networkInterfaces();
   const candidates = [];
@@ -20,10 +25,10 @@ function getNetworkMode() {
 
       const lowerName = name.toLowerCase();
       const isHotspot =
-        lowerName.includes('hosted') ||       // Windows Mobile Hotspot
-        lowerName.includes('local area') ||    // Windows ICS
-        iface.address.startsWith('192.168.137') || // Windows hotspot default
-        iface.address.startsWith('172.20.');   // macOS Internet Sharing
+        lowerName.includes('hosted') ||
+        lowerName.includes('local area') ||
+        iface.address.startsWith('192.168.137') ||
+        iface.address.startsWith('172.20.');
 
       candidates.push({
         name,
@@ -34,7 +39,6 @@ function getNetworkMode() {
     }
   }
 
-  // Prefer hotspot interface if one exists, otherwise first LAN
   const hotspot = candidates.find(c => c.isHotspot);
   if (hotspot) {
     return { mode: 'hotspot', ip: hotspot.address, interfaceName: hotspot.name, all: candidates };
@@ -53,10 +57,15 @@ function getLanIp() {
 }
 
 function getServerUrl(port) {
-  return `http://${getLanIp()}:${port || currentPort}`;
+  return `https://${getLanIp()}:${port || currentHttpsPort}`;
 }
 
-// Watch for IP changes (laptop switches network, hotspot on/off)
+function getHttpUrl(port) {
+  return `http://${getLanIp()}:${port || currentHttpPort}`;
+}
+
+// ── IP change watcher ──
+
 let lastIp = null;
 let ipChangeCallbacks = [];
 
@@ -78,7 +87,37 @@ function startIpWatcher(intervalMs = 5000) {
   }, intervalMs);
 }
 
-// Try a port, fall back to next available if taken
+// ── Self-signed certificate ──
+
+function generateCert() {
+  const selfsigned = require('selfsigned');
+  const networkInfo = getNetworkMode();
+
+  const altNames = [
+    { type: 2, value: 'localhost' },
+    { type: 7, ip: '127.0.0.1' },
+  ];
+
+  for (const iface of networkInfo.all) {
+    altNames.push({ type: 7, ip: iface.address });
+  }
+
+  const attrs = [{ name: 'commonName', value: 'AR Model Viewer' }];
+  const pems = selfsigned.generate(attrs, {
+    keySize: 2048,
+    days: 30,
+    algorithm: 'sha256',
+    extensions: [
+      { name: 'subjectAltName', altNames },
+      { name: 'basicConstraints', cA: false },
+    ],
+  });
+
+  return { key: pems.private, cert: pems.cert };
+}
+
+// ── Port finder ──
+
 function findAvailablePort(startPort) {
   return new Promise((resolve) => {
     const net = require('net');
@@ -92,10 +131,14 @@ function findAvailablePort(startPort) {
   });
 }
 
+// ── Server ──
+
 function startServer(port = 3456) {
   return new Promise(async (resolve, reject) => {
-    const availablePort = await findAvailablePort(port);
-    currentPort = availablePort;
+    const httpPort = await findAvailablePort(port);
+    const httpsPort = await findAvailablePort(httpPort + 1);
+    currentHttpPort = httpPort;
+    currentHttpsPort = httpsPort;
 
     const app = express();
 
@@ -122,8 +165,6 @@ function startServer(port = 3456) {
         if (mimeTypes[ext]) {
           res.set('Content-Type', mimeTypes[ext]);
         }
-        // Scene Viewer and Quick Look may fetch models in their own process;
-        // allow range requests and inline display
         res.set('Accept-Ranges', 'bytes');
         if (ext === '.usdz') {
           res.set('Content-Disposition', 'inline');
@@ -145,8 +186,10 @@ function startServer(port = 3456) {
       const network = getNetworkMode();
       res.json({
         ip: network.ip,
-        port: currentPort,
+        httpPort: currentHttpPort,
+        httpsPort: currentHttpsPort,
         url: getServerUrl(),
+        httpUrl: getHttpUrl(),
         networkMode: network.mode,
         interfaceName: network.interfaceName,
         allInterfaces: network.all,
@@ -450,23 +493,53 @@ function startServer(port = 3456) {
       res.json({ ok: true, timestamp: Date.now() });
     });
 
-    serverInstance = app.listen(currentPort, '0.0.0.0', () => {
-      startIpWatcher();
-      resolve({ server: serverInstance, port: currentPort });
+    // ── Start HTTP server (for Electron app) ──
+    httpServer = http.createServer(app);
+
+    // ── Start HTTPS server (for phones / AR) ──
+    let tlsCredentials;
+    try {
+      tlsCredentials = generateCert();
+      console.log('Generated self-signed TLS certificate for AR viewer');
+    } catch (err) {
+      console.error('Failed to generate TLS certificate:', err.message);
+    }
+
+    httpServer.listen(currentHttpPort, '0.0.0.0', () => {
+      if (tlsCredentials) {
+        httpsServer = https.createServer(tlsCredentials, app);
+        httpsServer.listen(currentHttpsPort, '0.0.0.0', () => {
+          startIpWatcher();
+          resolve({
+            server: httpServer,
+            httpsServer,
+            port: currentHttpPort,
+            httpsPort: currentHttpsPort,
+          });
+        });
+        httpsServer.on('error', (err) => {
+          console.error('HTTPS server error:', err.message);
+          startIpWatcher();
+          resolve({ server: httpServer, port: currentHttpPort, httpsPort: null });
+        });
+      } else {
+        startIpWatcher();
+        resolve({ server: httpServer, port: currentHttpPort, httpsPort: null });
+      }
     });
 
-    serverInstance.on('error', reject);
+    httpServer.on('error', reject);
   });
 }
 
 function stopServer() {
   return new Promise((resolve) => {
-    if (serverInstance) {
-      serverInstance.close(resolve);
-      serverInstance = null;
-    } else {
-      resolve();
-    }
+    let pending = 0;
+    const done = () => { if (--pending <= 0) resolve(); };
+
+    if (httpServer) { pending++; httpServer.close(done); httpServer = null; }
+    if (httpsServer) { pending++; httpsServer.close(done); httpsServer = null; }
+    if (pending === 0) resolve();
   });
 }
 
@@ -474,6 +547,7 @@ module.exports = {
   startServer,
   stopServer,
   getServerUrl,
+  getHttpUrl,
   getLanIp,
   getNetworkMode,
   onIpChange,
