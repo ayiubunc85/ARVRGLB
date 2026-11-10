@@ -122,6 +122,24 @@
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; pointer-events: auto;
     }
+    .ar-scale-bar {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      display: none; align-items: center; gap: 10px; pointer-events: auto;
+    }
+    .ar-scale-bar.visible { display: flex; }
+    .ar-scale-pill {
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
+      border-radius: 10px; padding: 8px 16px; font-size: 14px;
+      color: rgba(255,255,255,0.9); font-variant-numeric: tabular-nums;
+      min-width: 80px; text-align: center;
+    }
+    .ar-scale-pill.is-one { color: #4ade80; }
+    .ar-11-btn {
+      background: rgba(67,97,238,0.85); border: none; border-radius: 10px;
+      padding: 8px 16px; font-size: 14px; font-weight: 600; color: white;
+      cursor: pointer; pointer-events: auto; white-space: nowrap;
+    }
+    .ar-11-btn:active { opacity: 0.8; }
   </style>
 
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
@@ -168,6 +186,10 @@
       <span class="ar-guide-pill" id="arGuideText">Move your phone slowly to scan the floor</span>
     </div>
     <button class="ar-close-btn" id="arCloseBtn">&times;</button>
+    <div class="ar-scale-bar" id="arScaleBar">
+      <span class="ar-scale-pill" id="arScaleText">4%</span>
+      <button class="ar-11-btn" id="ar11Btn">1 : 1</button>
+    </div>
   </div>
 
   <!-- ── 3D Preview Logic ── -->
@@ -345,6 +367,9 @@
     const overlay = document.getElementById('arOverlay');
     const guideText = document.getElementById('arGuideText');
     const closeBtn = document.getElementById('arCloseBtn');
+    const scaleBar = document.getElementById('arScaleBar');
+    const scaleText = document.getElementById('arScaleText');
+    const btn11 = document.getElementById('ar11Btn');
     const viewerEl = document.getElementById('viewer');
 
     // Global cleanup — called on any exit path
@@ -402,6 +427,22 @@
       let modelLoaded = false;
       let hitTestSource = null;
       let hitCount = 0;
+      let initialScale = 1; // scale applied at load to shrink model to 0.4m
+
+      function updateScaleUI() {
+        const effective = initialScale * modelGroup.scale.x;
+        const pct = effective * 100;
+        if (pct >= 99.5 && pct <= 100.5) {
+          scaleText.textContent = '1 : 1';
+          scaleText.classList.add('is-one');
+        } else if (pct >= 10) {
+          scaleText.textContent = Math.round(pct) + '%';
+          scaleText.classList.remove('is-one');
+        } else {
+          scaleText.textContent = pct.toFixed(1) + '%';
+          scaleText.classList.remove('is-one');
+        }
+      }
 
       try {
         const vSpace = await session.requestReferenceSpace('viewer');
@@ -425,10 +466,21 @@
         modelGroup.visible = true;
         placed = true;
         reticle.visible = false;
-        // Enable touch gestures on overlay now that model is placed
         overlay.style.pointerEvents = 'auto';
         guideText.textContent = 'Swipe to rotate · Pinch to resize · Two-finger drag to move';
         setTimeout(() => { guideText.parentElement.style.opacity = '0'; guideText.parentElement.style.transition = 'opacity 1s'; }, 5000);
+        scaleBar.classList.add('visible');
+        updateScaleUI();
+      });
+
+      // 1:1 scale button
+      btn11.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); });
+      btn11.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!placed) return;
+        const target = 1.0 / initialScale;
+        modelGroup.scale.setScalar(target);
+        updateScaleUI();
       });
 
       // ── 5. Gestures (active after placement, when overlay captures touches) ──
@@ -439,7 +491,7 @@
 
       overlay.addEventListener('touchstart', e => {
         // Don't interfere with close button
-        if (e.target === closeBtn) return;
+        if (e.target === closeBtn || e.target === btn11) return;
         for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
         const k = Object.keys(touches);
         if (k.length === 2 && placed) {
@@ -456,7 +508,7 @@
       }, { passive: true });
 
       overlay.addEventListener('touchmove', e => {
-        if (e.target === closeBtn) return;
+        if (e.target === closeBtn || e.target === btn11) return;
         for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
         const k = Object.keys(touches);
 
@@ -465,6 +517,7 @@
           // Pinch to scale
           const d = Math.hypot(b.x - a.x, b.y - a.y);
           modelGroup.scale.setScalar(Math.max(0.02, Math.min(20, pinchScale0 * d / pinchDist0)));
+          updateScaleUI();
           // Two-finger drag to move along floor plane
           const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
           const dmx = midX - twoLastMidX, dmy = midY - twoLastMidY;
@@ -515,6 +568,7 @@
         overlay.style.pointerEvents = '';
         guideText.parentElement.style.opacity = '';
         guideText.parentElement.style.transition = '';
+        scaleBar.classList.remove('visible');
         closeBtn.ontouchstart = null;
         closeBtn.onclick = null;
         cleanupFn = null;
@@ -556,6 +610,7 @@
         const center = box.getCenter(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
         const scale = 0.4 / maxDim;
+        initialScale = scale;
         model.scale.setScalar(scale);
         model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
         modelGroup.add(model);
