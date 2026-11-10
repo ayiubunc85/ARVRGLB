@@ -7,6 +7,16 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#0a0a0a">
   <title>AR Viewer</title>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+    }
+  }
+  </script>
+
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -20,8 +30,6 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* ── Model Viewer ── */
-
     model-viewer {
       width: 100%;
       height: 100vh;
@@ -31,286 +39,101 @@
       --progress-bar-color: #4361ee;
       --progress-bar-height: 3px;
     }
-
-    /* Hide the default AR button — we use our own */
-    model-viewer::part(default-ar-button) {
-      display: none;
-    }
-
-    /* ── Custom AR Button ── */
+    model-viewer::part(default-ar-button) { display: none; }
 
     .ar-button {
-      position: fixed;
-      bottom: 32px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #4361ee;
-      border-radius: 16px;
-      padding: 16px 36px;
-      font-size: 16px;
-      font-weight: 600;
-      color: white;
-      border: none;
-      box-shadow: 0 4px 24px rgba(67, 97, 238, 0.45);
-      z-index: 20;
-      display: none;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      background: #4361ee; border-radius: 16px; padding: 16px 36px;
+      font-size: 16px; font-weight: 600; color: white; border: none;
+      box-shadow: 0 4px 24px rgba(67,97,238,0.45); z-index: 20;
+      display: none; align-items: center; gap: 10px; cursor: pointer;
     }
-
-    .ar-button:active {
-      transform: translateX(-50%) scale(0.96);
-      box-shadow: 0 2px 12px rgba(67, 97, 238, 0.3);
-    }
-
+    .ar-button:active { transform: translateX(-50%) scale(0.96); }
     .ar-button.visible { display: flex; }
-
-    .ar-button svg {
-      width: 22px;
-      height: 22px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    /* ── Loading Screen ── */
+    .ar-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
 
     .loading-screen {
-      position: fixed;
-      inset: 0;
-      background: #0a0a0a;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      transition: opacity 0.4s ease;
+      position: fixed; inset: 0; background: #0a0a0a;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 100; transition: opacity 0.4s ease;
     }
+    .loading-screen.hidden { opacity: 0; pointer-events: none; }
 
-    .loading-screen.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .spinner {
-      width: 48px;
-      height: 48px;
-      border: 3px solid rgba(255, 255, 255, 0.08);
-      border-top-color: #4361ee;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
+    .spinner { width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.08); border-top-color: #4361ee; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .loading-status {
-      margin-top: 20px;
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.5);
-      text-align: center;
-    }
-
-    .progress-bar {
-      width: 180px;
-      height: 3px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 2px;
-      margin-top: 16px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      width: 0%;
-      background: #4361ee;
-      border-radius: 2px;
-      transition: width 0.3s ease;
-    }
-
-    /* ── Model Info Bar ── */
+    .loading-status { margin-top: 20px; font-size: 14px; color: rgba(255,255,255,0.5); text-align: center; }
+    .progress-bar { width: 180px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 16px; overflow: hidden; }
+    .progress-fill { height: 100%; width: 0%; background: #4361ee; border-radius: 2px; transition: width 0.3s ease; }
 
     .info-bar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      padding: 12px 16px;
+      position: fixed; top: 0; left: 0; right: 0; padding: 12px 16px;
       padding-top: max(12px, env(safe-area-inset-top));
       background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      z-index: 10;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      pointer-events: none;
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 10; opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
     }
-
-    .info-bar.visible {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .model-name {
-      font-size: 15px;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 60%;
-    }
-
-    .model-size {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.5);
-    }
-
-    /* ── AR guidance overlay ── */
-
-    .ar-guide {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      padding: 16px;
-      padding-top: max(16px, env(safe-area-inset-top));
-      text-align: center;
-      z-index: 30;
-      pointer-events: none;
-      display: none;
-    }
-
-    .ar-guide.visible { display: block; }
-
-    .ar-guide-text {
-      display: inline-block;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-radius: 12px;
-      padding: 12px 20px;
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.9);
-      line-height: 1.4;
-    }
-
-    /* ── AR exit button ── */
-
-    .ar-exit-btn {
-      position: fixed;
-      top: 16px;
-      top: max(16px, env(safe-area-inset-top));
-      right: 16px;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: rgba(0, 0, 0, 0.6);
-      border: none;
-      color: white;
-      font-size: 20px;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 30;
-      cursor: pointer;
-    }
-
-    .ar-exit-btn.visible { display: flex; }
-
-    /* ── No-AR notice ── */
+    .info-bar.visible { opacity: 1; pointer-events: auto; }
+    .model-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+    .model-size { font-size: 12px; color: rgba(255,255,255,0.5); }
 
     .no-ar-notice {
-      position: fixed;
-      bottom: 32px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(30, 30, 50, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-radius: 12px;
-      padding: 14px 24px;
-      font-size: 13px;
-      color: rgba(255, 255, 255, 0.65);
-      text-align: center;
-      z-index: 20;
-      max-width: 90%;
-      display: none;
-      line-height: 1.4;
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      background: rgba(30,30,50,0.85); backdrop-filter: blur(12px);
+      border-radius: 12px; padding: 14px 24px; font-size: 13px;
+      color: rgba(255,255,255,0.65); text-align: center; z-index: 20;
+      max-width: 90%; display: none; line-height: 1.4;
     }
-
     .no-ar-notice.visible { display: block; }
 
-    /* ── Error Screen ── */
-
     .error-screen {
-      position: fixed;
-      inset: 0;
-      background: #0a0a0a;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 32px;
-      text-align: center;
-      z-index: 100;
+      position: fixed; inset: 0; background: #0a0a0a; display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      padding: 32px; text-align: center; z-index: 100;
     }
-
     .error-screen.visible { display: flex; }
+    .error-icon { width: 56px; height: 56px; border-radius: 50%; background: rgba(239,68,68,0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 24px; }
+    .error-screen h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .error-screen p { font-size: 14px; color: rgba(255,255,255,0.5); max-width: 300px; line-height: 1.5; }
+    .retry-btn { margin-top: 24px; background: #4361ee; color: #fff; border: none; border-radius: 10px; padding: 12px 28px; font-size: 15px; font-weight: 600; cursor: pointer; }
 
-    .error-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: rgba(239, 68, 68, 0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
-      font-size: 24px;
+    /* ── AR Overlay (dom-overlay root during WebXR) ── */
+    #arOverlay {
+      position: fixed; inset: 0; z-index: 200; display: none;
+      pointer-events: none;
     }
+    #arOverlay.active { display: block; }
+    #arOverlay > * { pointer-events: auto; }
 
-    .error-screen h2 {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 8px;
+    .ar-guide-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: 16px; padding-top: max(16px, env(safe-area-inset-top));
+      text-align: center; pointer-events: none;
     }
-
-    .error-screen p {
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.5);
-      max-width: 300px;
-      line-height: 1.5;
+    .ar-guide-pill {
+      display: inline-block; background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(10px); border-radius: 12px;
+      padding: 10px 20px; font-size: 14px; color: rgba(255,255,255,0.9);
     }
-
-    .retry-btn {
-      margin-top: 24px;
-      background: #4361ee;
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      padding: 12px 28px;
-      font-size: 15px;
-      font-weight: 600;
+    .ar-close-btn {
+      position: fixed; top: 16px; top: max(16px, env(safe-area-inset-top));
+      right: 16px; width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(0,0,0,0.5); border: none; color: white;
+      font-size: 22px; display: flex; align-items: center; justify-content: center;
       cursor: pointer;
     }
   </style>
+
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
 </head>
 <body>
 
-  <!-- Loading -->
   <div class="loading-screen" id="loading">
     <div class="spinner"></div>
     <p class="loading-status" id="loadingStatus">Connecting…</p>
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
   </div>
 
-  <!-- Error -->
   <div class="error-screen" id="error">
     <div class="error-icon">!</div>
     <h2 id="errorTitle">Could not load model</h2>
@@ -318,51 +141,36 @@
     <button class="retry-btn" id="retryBtn">Try again</button>
   </div>
 
-  <!-- Info bar (shown after model loads) -->
   <div class="info-bar" id="infoBar">
     <span class="model-name" id="modelName"></span>
     <span class="model-size" id="modelSize"></span>
   </div>
 
-  <!-- AR guidance (shown during AR session) -->
-  <div class="ar-guide" id="arGuide">
-    <span class="ar-guide-text" id="arGuideText">Point your phone at the floor and move it slowly</span>
-  </div>
+  <div class="no-ar-notice" id="noArNotice"></div>
 
-  <!-- AR exit button (shown during AR session) -->
-  <button class="ar-exit-btn" id="arExitBtn">&times;</button>
-
-  <!-- No-AR fallback notice -->
-  <div class="no-ar-notice" id="noArNotice">
-    AR is not available on this device or browser. You can still rotate and zoom the 3D model above.
-  </div>
-
-  <!-- Custom AR button -->
   <button class="ar-button" id="arBtn">
     <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
     View in AR
   </button>
 
-  <!-- 3D / AR viewer -->
   <model-viewer
     id="viewer"
-    ar
-    ar-modes="webxr scene-viewer quick-look"
-    ar-scale="fixed"
-    ar-placement="floor"
-    camera-controls
-    touch-action="pan-y"
-    auto-rotate
-    auto-rotate-delay="2000"
-    rotation-per-second="24deg"
-    shadow-intensity="1"
-    shadow-softness="0.8"
-    exposure="1"
-    environment-image="neutral"
-    interaction-prompt="auto"
+    camera-controls touch-action="pan-y"
+    auto-rotate auto-rotate-delay="2000" rotation-per-second="24deg"
+    shadow-intensity="1" shadow-softness="0.8" exposure="1"
+    environment-image="neutral" interaction-prompt="auto"
     style="visibility: hidden; position: absolute;"
   ></model-viewer>
 
+  <!-- AR DOM overlay (shown during WebXR session) -->
+  <div id="arOverlay">
+    <div class="ar-guide-bar">
+      <span class="ar-guide-pill" id="arGuideText">Move your phone slowly to scan the floor</span>
+    </div>
+    <button class="ar-close-btn" id="arCloseBtn">&times;</button>
+  </div>
+
+  <!-- ── 3D Preview Logic ── -->
   <script>
     (function () {
       var viewer = document.getElementById('viewer');
@@ -377,23 +185,19 @@
       var modelNameEl = document.getElementById('modelName');
       var modelSizeEl = document.getElementById('modelSize');
       var arBtn = document.getElementById('arBtn');
-      var arGuide = document.getElementById('arGuide');
-      var arGuideText = document.getElementById('arGuideText');
-      var arExitBtn = document.getElementById('arExitBtn');
       var noArNotice = document.getElementById('noArNotice');
 
-      var isInAR = false;
-
-      // Parse model ID from URL: /ar/my-model
       var pathParts = window.location.pathname.split('/');
       var modelId = decodeURIComponent(pathParts[pathParts.length - 1]);
 
-      if (!modelId) {
-        showError('No model specified', 'The URL is missing a model name.');
-        return;
-      }
+      if (!modelId) { showError('No model specified', 'The URL is missing a model name.'); return; }
 
       var baseUrl = window.location.origin;
+      var glbUrl = baseUrl + '/models/' + encodeURIComponent(modelId) + '.glb';
+      var usdzUrl = baseUrl + '/models/' + encodeURIComponent(modelId) + '.usdz';
+
+      // Expose for the AR module
+      window.__arModelUrl = glbUrl;
 
       startLoading();
 
@@ -404,33 +208,26 @@
         startLoading();
       });
 
-      // Custom AR button triggers model-viewer AR
-      arBtn.addEventListener('click', function () {
-        if (viewer.canActivateAR) {
-          viewer.activateAR();
-        }
-      });
-
-      // AR exit button ends the XR session
-      arExitBtn.addEventListener('click', function () {
-        exitAR();
-      });
-
-      function exitAR() {
-        try {
-          // model-viewer exposes the XR session — end it if active
-          if (viewer.xrSession) {
-            viewer.xrSession.end();
+      // AR button — start custom WebXR AR
+      arBtn.addEventListener('click', async function () {
+        if (typeof window.startCustomAR === 'function') {
+          arBtn.classList.remove('visible');
+          infoBar.classList.remove('visible');
+          try {
+            await window.startCustomAR(glbUrl);
+          } catch (err) {
+            noArNotice.textContent = 'AR failed: ' + (err.message || err);
+            noArNotice.classList.add('visible');
+            setTimeout(function () { noArNotice.classList.remove('visible'); }, 5000);
           }
-        } catch (e) {
-          // Fallback: toggle AR off
+          arBtn.classList.add('visible');
+          infoBar.classList.add('visible');
         }
-      }
+      });
 
       function startLoading() {
         loadingStatus.textContent = 'Connecting…';
         progressFill.style.width = '0%';
-
         checkServer()
           .then(function () {
             progressFill.style.width = '20%';
@@ -442,9 +239,7 @@
             loadingStatus.textContent = 'Loading 3D model…';
             loadModel(info);
           })
-          .catch(function (err) {
-            showError(err.title || 'Connection failed', err.message || err);
-          });
+          .catch(function (err) { showError(err.title || 'Connection failed', err.message || err); });
       }
 
       function checkServer() {
@@ -452,22 +247,9 @@
           var xhr = new XMLHttpRequest();
           xhr.open('GET', baseUrl + '/api/ping', true);
           xhr.timeout = 5000;
-          xhr.onload = function () {
-            if (xhr.status === 200) resolve();
-            else reject({ title: 'Server error', message: 'Server returned status ' + xhr.status });
-          };
-          xhr.onerror = function () {
-            reject({
-              title: 'Cannot reach server',
-              message: 'Make sure your phone is on the same WiFi network as the host computer.'
-            });
-          };
-          xhr.ontimeout = function () {
-            reject({
-              title: 'Connection timed out',
-              message: 'The server did not respond. Check your WiFi connection.'
-            });
-          };
+          xhr.onload = function () { xhr.status === 200 ? resolve() : reject({ title: 'Server error', message: 'Status ' + xhr.status }); };
+          xhr.onerror = function () { reject({ title: 'Cannot reach server', message: 'Make sure your phone is on the same WiFi network as the host computer.' }); };
+          xhr.ontimeout = function () { reject({ title: 'Connection timed out', message: 'The server did not respond.' }); };
           xhr.send();
         });
       }
@@ -478,43 +260,30 @@
           xhr.open('GET', baseUrl + '/api/models/' + encodeURIComponent(modelId), true);
           xhr.timeout = 5000;
           xhr.onload = function () {
-            if (xhr.status === 200) {
-              resolve(JSON.parse(xhr.responseText));
-            } else if (xhr.status === 404) {
-              reject({ title: 'Model not found', message: '"' + modelId + '" does not exist on the server.' });
-            } else {
-              reject({ title: 'Server error', message: 'Could not fetch model info.' });
-            }
+            if (xhr.status === 200) resolve(JSON.parse(xhr.responseText));
+            else if (xhr.status === 404) reject({ title: 'Model not found', message: '"' + modelId + '" not on server.' });
+            else reject({ title: 'Server error', message: 'Could not fetch model info.' });
           };
-          xhr.onerror = function () { reject({ title: 'Network error', message: 'Lost connection to server.' }); };
-          xhr.ontimeout = function () { reject({ title: 'Timed out', message: 'Server took too long to respond.' }); };
+          xhr.onerror = function () { reject({ title: 'Network error', message: 'Lost connection.' }); };
+          xhr.ontimeout = function () { reject({ title: 'Timed out', message: 'Server too slow.' }); };
           xhr.send();
         });
       }
 
       function loadModel(info) {
-        var glbSrc = baseUrl + '/models/' + encodeURIComponent(modelId) + '.glb';
-        var usdzSrc = baseUrl + '/models/' + encodeURIComponent(modelId) + '.usdz';
-        if (info.hasGlb) viewer.setAttribute('src', glbSrc);
-        if (info.hasUsdz) viewer.setAttribute('ios-src', usdzSrc);
+        if (info.hasGlb) viewer.setAttribute('src', glbUrl);
+        if (info.hasUsdz) viewer.setAttribute('ios-src', usdzUrl);
         viewer.setAttribute('alt', '3D model: ' + modelId);
 
-        // Populate info bar
         var displayName = modelId.replace(/[-_]/g, ' ');
-        displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
-        modelNameEl.textContent = displayName;
+        modelNameEl.textContent = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+        modelSizeEl.textContent = (info.glbSizeMB || info.usdzSizeMB || '?') + ' MB';
 
-        var sizeMB = info.glbSizeMB || info.usdzSizeMB || '?';
-        modelSizeEl.textContent = sizeMB + ' MB';
-
-        // Listen for model-viewer progress
         viewer.addEventListener('progress', function (e) {
-          var pct = 40 + (e.detail.totalProgress * 60);
-          progressFill.style.width = pct + '%';
+          progressFill.style.width = (40 + e.detail.totalProgress * 60) + '%';
           loadingStatus.textContent = 'Loading… ' + Math.round(e.detail.totalProgress * 100) + '%';
         });
 
-        // Model loaded successfully
         viewer.addEventListener('load', function onLoad() {
           viewer.removeEventListener('load', onLoad);
           loading.classList.add('hidden');
@@ -522,99 +291,28 @@
           viewer.style.position = 'static';
           infoBar.classList.add('visible');
 
-          // Check AR availability after a brief delay
-          setTimeout(function () {
-            if (viewer.canActivateAR) {
+          // Check if WebXR AR is available
+          setTimeout(async function () {
+            var arAvailable = false;
+            if (navigator.xr) {
+              try { arAvailable = await navigator.xr.isSessionSupported('immersive-ar'); } catch (e) {}
+            }
+            if (arAvailable) {
               arBtn.classList.add('visible');
             } else {
+              noArNotice.textContent = 'AR requires HTTPS and an AR-capable device with Chrome.';
               noArNotice.classList.add('visible');
             }
-          }, 500);
+          }, 300);
         });
 
-        // AR session events
-        viewer.addEventListener('ar-status', function (e) {
-          var status = e.detail.status;
-
-          if (status === 'session-started') {
-            isInAR = true;
-            arBtn.classList.remove('visible');
-            infoBar.classList.remove('visible');
-            arGuide.classList.add('visible');
-            arExitBtn.classList.add('visible');
-
-            // Update guide text after a few seconds
-            setTimeout(function () {
-              if (isInAR) {
-                arGuideText.textContent = 'Pinch to resize · Drag to move';
-              }
-            }, 5000);
-
-            // Hide guide after 10s
-            setTimeout(function () {
-              arGuide.classList.remove('visible');
-            }, 10000);
-
-          } else if (status === 'not-presenting') {
-            isInAR = false;
-            arGuide.classList.remove('visible');
-            arExitBtn.classList.remove('visible');
-
-            // Reset model-viewer to clean state after AR exit
-            setTimeout(function () {
-              try {
-                viewer.resetTurntableRotation();
-                viewer.jumpCameraToGoal();
-              } catch (e) {}
-              arBtn.classList.add('visible');
-              infoBar.classList.add('visible');
-            }, 300);
-
-          } else if (status === 'failed') {
-            isInAR = false;
-            arGuide.classList.remove('visible');
-            arExitBtn.classList.remove('visible');
-            arBtn.classList.add('visible');
-            infoBar.classList.add('visible');
-            noArNotice.textContent = 'AR failed to start. Try closing other apps and retry.';
-            noArNotice.classList.add('visible');
-            setTimeout(function () { noArNotice.classList.remove('visible'); }, 5000);
-          }
-        });
-
-        // Handle WebGL context loss (can happen after AR session)
-        var canvas = viewer.shadowRoot && viewer.shadowRoot.querySelector('canvas');
-        if (canvas) {
-          canvas.addEventListener('webglcontextlost', function (e) {
-            e.preventDefault();
-          });
-          canvas.addEventListener('webglcontextrestored', function () {
-            // model-viewer should auto-restore, but force an update
-            var currentSrc = viewer.getAttribute('src');
-            if (currentSrc) {
-              viewer.setAttribute('src', '');
-              requestAnimationFrame(function () {
-                viewer.setAttribute('src', currentSrc);
-              });
-            }
-          });
-        }
-
-        // Error loading the model file
         viewer.addEventListener('error', function () {
-          showError(
-            'Failed to load model',
-            'The file could not be loaded. It may be corrupted or in an unsupported format.'
-          );
+          showError('Failed to load model', 'The file may be corrupted or unsupported.');
         });
 
-        // Timeout — if model hasn't loaded in 120s
         setTimeout(function () {
           if (!loading.classList.contains('hidden')) {
-            showError(
-              'Loading timed out',
-              'The model is taking too long to load. It may be too large for this connection.'
-            );
+            showError('Loading timed out', 'Model too large for this connection.');
           }
         }, 120000);
       }
@@ -627,24 +325,251 @@
         errorEl.classList.add('visible');
       }
 
-      // Hide info bar on interaction, show on idle
       var hideTimer;
       viewer.addEventListener('camera-change', function () {
-        if (isInAR) return;
         infoBar.classList.remove('visible');
         clearTimeout(hideTimer);
         hideTimer = setTimeout(function () {
-          if (viewer.style.visibility !== 'hidden' && !isInAR) {
-            infoBar.classList.add('visible');
-          }
+          if (viewer.style.visibility !== 'hidden') infoBar.classList.add('visible');
         }, 2000);
       });
     })();
   </script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/ar/sw.js').catch(function () {});
-    }
+
+  <!-- ── Custom WebXR AR with Three.js ── -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+    const overlay = document.getElementById('arOverlay');
+    const guideText = document.getElementById('arGuideText');
+    const closeBtn = document.getElementById('arCloseBtn');
+    const viewer = document.getElementById('viewer');
+
+    let currentSession = null;
+
+    window.startCustomAR = async function (modelUrl) {
+      // ── Load model with Three.js ──
+      const dracoLoader = new DRACOLoader();
+      dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/libs/draco/');
+      const gltfLoader = new GLTFLoader();
+      gltfLoader.setDRACODecoder(dracoLoader);
+
+      guideText.textContent = 'Loading model for AR…';
+      overlay.classList.add('active');
+
+      let gltf;
+      try {
+        gltf = await gltfLoader.loadAsync(modelUrl);
+      } catch (err) {
+        overlay.classList.remove('active');
+        throw new Error('Could not load model for AR');
+      }
+
+      const model = gltf.scene;
+
+      // Compute bounding box — center horizontally, sit bottom on floor
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+
+      // Scale so the model is about 0.4m tall (table-top miniature)
+      const desiredSize = 0.4;
+      const scaleFactor = desiredSize / maxDim;
+      model.scale.setScalar(scaleFactor);
+
+      // Offset so bottom is at Y=0 and centered on XZ
+      model.position.set(
+        -center.x * scaleFactor,
+        -box.min.y * scaleFactor,
+        -center.z * scaleFactor
+      );
+
+      // Wrap in a group for placement transforms
+      const modelGroup = new THREE.Group();
+      modelGroup.add(model);
+      modelGroup.visible = false;
+
+      // ── Three.js scene ──
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+
+      // Lighting
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.2));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      dirLight.position.set(0.5, 1, 0.3);
+      scene.add(dirLight);
+
+      // Shadow plane (subtle shadow under the model)
+      const shadowGeo = new THREE.PlaneGeometry(2, 2);
+      const shadowMat = new THREE.ShadowMaterial({ opacity: 0.3 });
+      const shadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
+      shadowPlane.rotation.x = -Math.PI / 2;
+      shadowPlane.visible = false;
+      scene.add(shadowPlane);
+
+      // Reticle (ring on detected floor)
+      const reticle = new THREE.Mesh(
+        new THREE.RingGeometry(0.08, 0.1, 32).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: 0x4361ee, side: THREE.DoubleSide })
+      );
+      reticle.matrixAutoUpdate = false;
+      reticle.visible = false;
+      scene.add(reticle);
+
+      scene.add(modelGroup);
+
+      // ── XR Session ──
+      let hitTestSource = null;
+      let placed = false;
+      let localFloorSpace = null;
+
+      const session = await navigator.xr.requestSession('immersive-ar', {
+        requiredFeatures: ['hit-test'],
+        optionalFeatures: ['dom-overlay', 'local-floor'],
+        domOverlay: { root: overlay },
+      });
+      currentSession = session;
+
+      renderer.xr.setReferenceSpaceType('local-floor');
+      await renderer.xr.setSession(session);
+
+      // Hide model-viewer, show AR overlay
+      viewer.style.display = 'none';
+      overlay.classList.add('active');
+      guideText.textContent = 'Point at the floor and move slowly';
+
+      // Set up hit-test source
+      const viewerRefSpace = await session.requestReferenceSpace('viewer');
+      hitTestSource = await session.requestHitTestSource({ space: viewerRefSpace });
+
+      // ── Tap to place ──
+      session.addEventListener('select', function () {
+        if (reticle.visible && !placed) {
+          // Place model at reticle position
+          const pos = new THREE.Vector3();
+          pos.setFromMatrixPosition(reticle.matrix);
+          modelGroup.position.copy(pos);
+          modelGroup.visible = true;
+          placed = true;
+          reticle.visible = false;
+          shadowPlane.position.copy(pos);
+          shadowPlane.visible = true;
+
+          guideText.textContent = 'Pinch to resize · One finger to rotate';
+          setTimeout(function () {
+            guideText.parentElement.style.opacity = '0';
+            guideText.parentElement.style.transition = 'opacity 1s ease';
+          }, 4000);
+        }
+      });
+
+      // ── Touch gestures (on dom-overlay) ──
+      let activeTouches = {};
+      let pinchStartDist = 0;
+      let pinchStartScale = 1;
+      let lastTouchX = 0;
+
+      overlay.addEventListener('touchstart', function (e) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          activeTouches[t.identifier] = { x: t.clientX, y: t.clientY };
+        }
+        const keys = Object.keys(activeTouches);
+        if (keys.length === 2 && placed) {
+          const a = activeTouches[keys[0]], b = activeTouches[keys[1]];
+          pinchStartDist = Math.hypot(b.x - a.x, b.y - a.y);
+          pinchStartScale = modelGroup.scale.x;
+        }
+        if (keys.length === 1 && placed) {
+          lastTouchX = activeTouches[keys[0]].x;
+        }
+      }, { passive: true });
+
+      overlay.addEventListener('touchmove', function (e) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          activeTouches[t.identifier] = { x: t.clientX, y: t.clientY };
+        }
+        const keys = Object.keys(activeTouches);
+
+        if (keys.length === 2 && pinchStartDist > 0 && placed) {
+          // Pinch to scale
+          const a = activeTouches[keys[0]], b = activeTouches[keys[1]];
+          const dist = Math.hypot(b.x - a.x, b.y - a.y);
+          const ratio = dist / pinchStartDist;
+          const s = Math.max(0.05, Math.min(10, pinchStartScale * ratio));
+          modelGroup.scale.setScalar(s);
+        } else if (keys.length === 1 && placed) {
+          // One finger rotate
+          const dx = activeTouches[keys[0]].x - lastTouchX;
+          modelGroup.rotation.y += dx * 0.008;
+          lastTouchX = activeTouches[keys[0]].x;
+        }
+      }, { passive: true });
+
+      overlay.addEventListener('touchend', function (e) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          delete activeTouches[e.changedTouches[i].identifier];
+        }
+        if (Object.keys(activeTouches).length < 2) pinchStartDist = 0;
+      }, { passive: true });
+
+      // ── Close button ──
+      closeBtn.onclick = function () { session.end(); };
+
+      // ── Render loop ──
+      renderer.setAnimationLoop(function (timestamp, frame) {
+        if (!placed && frame && hitTestSource) {
+          const refSpace = renderer.xr.getReferenceSpace();
+          const results = frame.getHitTestResults(hitTestSource);
+          if (results.length > 0) {
+            const pose = results[0].getPose(refSpace);
+            if (pose) {
+              reticle.visible = true;
+              reticle.matrix.fromArray(pose.transform.matrix);
+            }
+          } else {
+            reticle.visible = false;
+          }
+        }
+        renderer.render(scene, camera);
+      });
+
+      // ── Session end cleanup ──
+      return new Promise(function (resolve) {
+        session.addEventListener('end', function () {
+          currentSession = null;
+          renderer.setAnimationLoop(null);
+          renderer.dispose();
+          dracoLoader.dispose();
+
+          // Restore model-viewer preview
+          viewer.style.display = '';
+          overlay.classList.remove('active');
+          guideText.parentElement.style.opacity = '';
+          guideText.parentElement.style.transition = '';
+
+          // Clean up Three.js objects
+          scene.traverse(function (obj) {
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+              if (Array.isArray(obj.material)) obj.material.forEach(function (m) { m.dispose(); });
+              else obj.material.dispose();
+            }
+          });
+
+          resolve();
+        });
+      });
+    };
   </script>
 </body>
 </html>
