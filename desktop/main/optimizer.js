@@ -1,8 +1,5 @@
 const path = require('path');
 const fs = require('fs');
-const { NodeIO } = require('@gltf-transform/core');
-const { ALL_EXTENSIONS } = require('@gltf-transform/extensions');
-const { draco, textureCompress, dedup, prune, quantize } = require('@gltf-transform/functions');
 const sharp = require('sharp');
 const draco3d = require('draco3dgltf');
 
@@ -10,6 +7,8 @@ let ioInstance = null;
 
 async function getIO() {
   if (ioInstance) return ioInstance;
+  const { NodeIO } = await import('@gltf-transform/core');
+  const { ALL_EXTENSIONS } = await import('@gltf-transform/extensions');
   const [encoderModule, decoderModule] = await Promise.all([
     draco3d.createEncoderModule(),
     draco3d.createDecoderModule(),
@@ -111,6 +110,7 @@ async function optimizeModel(filePath, outputPath, options = {}) {
   }
 
   // Build transform pipeline
+  const { draco, textureCompress, dedup, prune, quantize } = await import('@gltf-transform/functions');
   const transforms = [];
 
   if (deduplicate) {

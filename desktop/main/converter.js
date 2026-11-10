@@ -1,7 +1,5 @@
 const path = require('path');
 const fs = require('fs');
-const { NodeIO } = require('@gltf-transform/core');
-const { ALL_EXTENSIONS } = require('@gltf-transform/extensions');
 const sharp = require('sharp');
 const fflate = require('fflate');
 
@@ -9,6 +7,8 @@ async function getIO() {
   let draco3d;
   try { draco3d = require('draco3dgltf'); } catch { /* optional */ }
 
+  const { NodeIO } = await import('@gltf-transform/core');
+  const { ALL_EXTENSIONS } = await import('@gltf-transform/extensions');
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
   if (draco3d) {
     const [enc, dec] = await Promise.all([
