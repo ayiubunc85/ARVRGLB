@@ -108,7 +108,7 @@ function startServer(port = 3456) {
       next();
     });
 
-    // Serve 3D model files with proper MIME types
+    // Serve 3D model files with proper MIME types and headers for AR viewers
     const modelsDir = path.join(__dirname, '..', '..', 'models');
     app.use('/models', express.static(modelsDir, {
       setHeaders: (res, filePath) => {
@@ -121,6 +121,12 @@ function startServer(port = 3456) {
         };
         if (mimeTypes[ext]) {
           res.set('Content-Type', mimeTypes[ext]);
+        }
+        // Scene Viewer and Quick Look may fetch models in their own process;
+        // allow range requests and inline display
+        res.set('Accept-Ranges', 'bytes');
+        if (ext === '.usdz') {
+          res.set('Content-Disposition', 'inline');
         }
       },
     }));

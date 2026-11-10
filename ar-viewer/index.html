@@ -12,7 +12,7 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0a0a0a;
+      background: #0f0f1a;
       color: #fff;
       height: 100vh;
       height: 100dvh;
@@ -26,25 +26,56 @@
       width: 100%;
       height: 100vh;
       height: 100dvh;
-      background-color: #111119;
-      --poster-color: #111119;
+      background-color: #0f0f1a;
+      --poster-color: #0f0f1a;
       --progress-bar-color: #4361ee;
       --progress-bar-height: 3px;
     }
 
+    /* Hide the default AR button — we use our own */
     model-viewer::part(default-ar-button) {
+      display: none;
+    }
+
+    /* ── Custom AR Button ── */
+
+    .ar-button {
       position: fixed;
       bottom: 32px;
       left: 50%;
       transform: translateX(-50%);
       background: #4361ee;
-      border-radius: 14px;
-      padding: 14px 32px;
+      border-radius: 16px;
+      padding: 16px 36px;
       font-size: 16px;
       font-weight: 600;
       color: white;
       border: none;
-      box-shadow: 0 4px 24px rgba(67, 97, 238, 0.4);
+      box-shadow: 0 4px 24px rgba(67, 97, 238, 0.45);
+      z-index: 20;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .ar-button:active {
+      transform: translateX(-50%) scale(0.96);
+      box-shadow: 0 2px 12px rgba(67, 97, 238, 0.3);
+    }
+
+    .ar-button.visible { display: flex; }
+
+    .ar-button svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     /* ── Loading Screen ── */
@@ -139,9 +170,9 @@
       color: rgba(255, 255, 255, 0.5);
     }
 
-    /* ── AR Prompt Overlay ── */
+    /* ── AR Hint (shown below info bar when AR is available) ── */
 
-    .ar-prompt {
+    .ar-hint {
       position: fixed;
       bottom: 100px;
       left: 50%;
@@ -161,9 +192,30 @@
       white-space: nowrap;
     }
 
-    .ar-prompt.visible {
-      opacity: 1;
+    .ar-hint.visible { opacity: 1; }
+
+    /* ── No-AR notice ── */
+
+    .no-ar-notice {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30, 30, 50, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 12px;
+      padding: 14px 24px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.65);
+      text-align: center;
+      z-index: 20;
+      max-width: 90%;
+      display: none;
+      line-height: 1.4;
     }
+
+    .no-ar-notice.visible { display: block; }
 
     /* ── Error Screen ── */
 
@@ -244,14 +296,27 @@
     <span class="model-size" id="modelSize"></span>
   </div>
 
-  <!-- AR hint -->
-  <div class="ar-prompt" id="arPrompt">Tap the button below to place in your space</div>
+  <!-- AR hint (animated prompt above the button) -->
+  <div class="ar-hint" id="arHint">Tap below to view in your space</div>
+
+  <!-- No-AR fallback notice -->
+  <div class="no-ar-notice" id="noArNotice">
+    AR is not available on this device or browser. You can still rotate and zoom the 3D model above.
+  </div>
+
+  <!-- Custom AR button -->
+  <button class="ar-button" id="arBtn">
+    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    View in AR
+  </button>
 
   <!-- 3D / AR viewer -->
   <model-viewer
     id="viewer"
     ar
-    ar-modes="webxr scene-viewer quick-look"
+    ar-modes="scene-viewer webxr quick-look"
+    ar-scale="auto"
+    ar-placement="floor"
     camera-controls
     touch-action="pan-y"
     auto-rotate
@@ -278,7 +343,9 @@
       var infoBar = document.getElementById('infoBar');
       var modelNameEl = document.getElementById('modelName');
       var modelSizeEl = document.getElementById('modelSize');
-      var arPrompt = document.getElementById('arPrompt');
+      var arHint = document.getElementById('arHint');
+      var arBtn = document.getElementById('arBtn');
+      var noArNotice = document.getElementById('noArNotice');
 
       // Parse model ID from URL: /ar/my-model
       var pathParts = window.location.pathname.split('/');
@@ -291,9 +358,6 @@
 
       var baseUrl = window.location.origin;
 
-      // Step 1: Check server connectivity
-      // Step 2: Fetch model info
-      // Step 3: Load the model
       startLoading();
 
       retryBtn.addEventListener('click', function () {
@@ -301,6 +365,13 @@
         loading.classList.remove('hidden');
         loading.style.display = '';
         startLoading();
+      });
+
+      // Custom AR button triggers model-viewer AR
+      arBtn.addEventListener('click', function () {
+        if (viewer.canActivateAR) {
+          viewer.activateAR();
+        }
       });
 
       function startLoading() {
@@ -323,7 +394,6 @@
           });
       }
 
-      // Ping the server to verify WiFi connectivity
       function checkServer() {
         return new Promise(function (resolve, reject) {
           var xhr = new XMLHttpRequest();
@@ -349,7 +419,6 @@
         });
       }
 
-      // Get model metadata from the API
       function fetchModelInfo() {
         return new Promise(function (resolve, reject) {
           var xhr = new XMLHttpRequest();
@@ -371,9 +440,11 @@
       }
 
       function loadModel(info) {
-        // Set model sources
-        if (info.hasGlb) viewer.setAttribute('src', info.glbUrl);
-        if (info.hasUsdz) viewer.setAttribute('ios-src', info.usdzUrl);
+        // Build absolute URLs from the phone's own origin so Scene Viewer / Quick Look can fetch them
+        var glbSrc = baseUrl + '/models/' + encodeURIComponent(modelId) + '.glb';
+        var usdzSrc = baseUrl + '/models/' + encodeURIComponent(modelId) + '.usdz';
+        if (info.hasGlb) viewer.setAttribute('src', glbSrc);
+        if (info.hasUsdz) viewer.setAttribute('ios-src', usdzSrc);
         viewer.setAttribute('alt', '3D model: ' + modelId);
 
         // Populate info bar
@@ -399,23 +470,35 @@
           viewer.style.position = 'static';
           infoBar.classList.add('visible');
 
-          // Show AR prompt after a short delay
-          if (viewer.canActivateAR) {
-            setTimeout(function () {
-              arPrompt.classList.add('visible');
-              // Hide after 4s
-              setTimeout(function () { arPrompt.classList.remove('visible'); }, 4000);
-            }, 1500);
-          }
+          // Check AR availability after a brief delay (model-viewer needs a tick)
+          setTimeout(function () {
+            if (viewer.canActivateAR) {
+              arBtn.classList.add('visible');
+              setTimeout(function () {
+                arHint.classList.add('visible');
+                setTimeout(function () { arHint.classList.remove('visible'); }, 4000);
+              }, 1200);
+            } else {
+              noArNotice.classList.add('visible');
+            }
+          }, 500);
         });
 
         // AR session events
         viewer.addEventListener('ar-status', function (e) {
           if (e.detail.status === 'session-started') {
-            arPrompt.classList.remove('visible');
+            arHint.classList.remove('visible');
+            arBtn.classList.remove('visible');
             infoBar.classList.remove('visible');
           } else if (e.detail.status === 'not-presenting') {
+            arBtn.classList.add('visible');
             infoBar.classList.add('visible');
+          } else if (e.detail.status === 'failed') {
+            arBtn.classList.add('visible');
+            infoBar.classList.add('visible');
+            noArNotice.textContent = 'AR failed to start. Try opening this page in Chrome or Safari.';
+            noArNotice.classList.add('visible');
+            setTimeout(function () { noArNotice.classList.remove('visible'); }, 5000);
           }
         });
 
@@ -440,6 +523,7 @@
 
       function showError(title, msg) {
         loading.style.display = 'none';
+        arBtn.classList.remove('visible');
         errorTitle.textContent = title;
         errorMessage.textContent = msg;
         errorEl.classList.add('visible');
