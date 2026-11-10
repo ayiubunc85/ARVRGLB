@@ -100,15 +100,15 @@
     /* ── AR Overlay (dom-overlay root during WebXR) ── */
     #arOverlay {
       position: fixed; inset: 0; z-index: 200; display: none;
+      pointer-events: none;
     }
     #arOverlay.active { display: block; }
 
     .ar-guide-bar {
       position: fixed; top: 0; left: 0; right: 0;
       padding: 16px; padding-top: max(16px, env(safe-area-inset-top));
-      text-align: center; pointer-events: none; z-index: 201;
+      text-align: center; pointer-events: none;
     }
-    .ar-close-btn { z-index: 202; }
     .ar-guide-pill {
       display: inline-block; background: rgba(0,0,0,0.7);
       backdrop-filter: blur(10px); border-radius: 12px;
@@ -117,9 +117,16 @@
     .ar-close-btn {
       position: fixed; top: 16px; top: max(16px, env(safe-area-inset-top));
       right: 16px; width: 44px; height: 44px; border-radius: 50%;
-      background: rgba(0,0,0,0.5); border: none; color: white;
-      font-size: 22px; display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
+      background: rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.5);
+      color: white; font-size: 22px; z-index: 210;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; pointer-events: auto;
+    }
+    .ar-debug {
+      position: fixed; bottom: 16px; left: 16px; right: 16px;
+      background: rgba(0,0,0,0.7); border-radius: 8px; padding: 8px 12px;
+      font-size: 11px; color: rgba(255,255,255,0.7); pointer-events: none;
+      font-family: monospace; max-height: 120px; overflow-y: auto;
     }
   </style>
 
@@ -167,6 +174,7 @@
       <span class="ar-guide-pill" id="arGuideText">Move your phone slowly to scan the floor</span>
     </div>
     <button class="ar-close-btn" id="arCloseBtn">&times;</button>
+    <div class="ar-debug" id="arDebug"></div>
   </div>
 
   <!-- ── 3D Preview Logic ── -->
@@ -344,15 +352,26 @@
     const overlay = document.getElementById('arOverlay');
     const guideText = document.getElementById('arGuideText');
     const closeBtn = document.getElementById('arCloseBtn');
-    const viewer = document.getElementById('viewer');
+    const debugEl = document.getElementById('arDebug');
+    const viewerEl = document.getElementById('viewer');
 
-    let currentSession = null;
+    function log(msg) {
+      const line = document.createElement('div');
+      line.textContent = msg;
+      debugEl.appendChild(line);
+      debugEl.scrollTop = debugEl.scrollHeight;
+    }
+
+    // Global cleanup — called on any exit path
+    let cleanupFn = null;
 
     window.startCustomAR = async function (modelUrl) {
-      // ── Request XR session FIRST while user gesture is still active ──
       overlay.classList.add('active');
+      debugEl.innerHTML = '';
       guideText.textContent = 'Starting AR…';
+      log('Requesting XR session…');
 
+      // ── 1. Request XR session immediately (preserves user gesture) ──
       let session;
       try {
         session = await navigator.xr.requestSession('immersive-ar', {
@@ -361,220 +380,191 @@
         });
       } catch (err) {
         overlay.classList.remove('active');
-        throw new Error('WebXR session failed: ' + (err.message || err));
+        throw new Error('XR session: ' + (err.message || err));
       }
-      currentSession = session;
+      log('XR session started');
 
-      // ── Three.js scene (set up while XR session is live) ──
+      // ── 2. Three.js renderer ──
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
-
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
-      renderer.domElement.style.position = 'fixed';
-      renderer.domElement.style.inset = '0';
-      renderer.domElement.style.zIndex = '199';
       document.body.appendChild(renderer.domElement);
 
       renderer.xr.setReferenceSpaceType('local-floor');
       await renderer.xr.setSession(session);
+      log('Renderer bound to XR');
 
       // Hide model-viewer
-      viewer.style.display = 'none';
+      viewerEl.style.display = 'none';
 
       // Lighting
       scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.2));
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      dirLight.position.set(0.5, 1, 0.3);
-      scene.add(dirLight);
+      const dl = new THREE.DirectionalLight(0xffffff, 0.8);
+      dl.position.set(0.5, 1, 0.3);
+      scene.add(dl);
 
-      // Reticle (ring on detected floor)
+      // Reticle
       const reticle = new THREE.Mesh(
-        new THREE.RingGeometry(0.08, 0.1, 32).rotateX(-Math.PI / 2),
+        new THREE.RingGeometry(0.08, 0.11, 32).rotateX(-Math.PI / 2),
         new THREE.MeshBasicMaterial({ color: 0x4361ee, side: THREE.DoubleSide })
       );
       reticle.matrixAutoUpdate = false;
       reticle.visible = false;
       scene.add(reticle);
 
-      // Model group (added after model loads)
+      // Model container
       const modelGroup = new THREE.Group();
       modelGroup.visible = false;
       scene.add(modelGroup);
 
       let placed = false;
       let modelLoaded = false;
-
-      // ── Set up hit-test (optional — some devices don't support it) ──
       let hitTestSource = null;
+      let selectCount = 0;
+      let hitCount = 0;
+
+      // ── 3. Hit-test (optional) ──
       try {
-        const viewerRefSpace = await session.requestReferenceSpace('viewer');
-        hitTestSource = await session.requestHitTestSource({ space: viewerRefSpace });
-        guideText.textContent = 'Move phone slowly to scan the floor';
+        const vSpace = await session.requestReferenceSpace('viewer');
+        hitTestSource = await session.requestHitTestSource({ space: vSpace });
+        log('Hit-test enabled');
+        guideText.textContent = 'Move phone slowly to find the floor';
       } catch (e) {
-        guideText.textContent = 'Tap to place model';
+        log('Hit-test unavailable: ' + e.message);
+        guideText.textContent = 'Tap anywhere to place model';
       }
 
-      // ── Load model with Three.js (in parallel with AR session) ──
+      // ── 4. Load model (parallel) ──
       const dracoLoader = new DRACOLoader();
       dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/libs/draco/');
       const gltfLoader = new GLTFLoader();
       gltfLoader.setDRACODecoder(dracoLoader);
+      log('Loading model…');
 
       try {
         const gltf = await gltfLoader.loadAsync(modelUrl);
         const model = gltf.scene;
-
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-
-        const desiredSize = 0.4;
-        const scaleFactor = desiredSize / maxDim;
-        model.scale.setScalar(scaleFactor);
-
-        model.position.set(
-          -center.x * scaleFactor,
-          -box.min.y * scaleFactor,
-          -center.z * scaleFactor
-        );
-
+        const scale = 0.4 / maxDim;
+        model.scale.setScalar(scale);
+        model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
         modelGroup.add(model);
         modelLoaded = true;
-        guideText.textContent = hitTestSource
-          ? 'Point at the floor, then tap to place'
-          : 'Tap anywhere to place model';
+        log('Model loaded (' + size.x.toFixed(1) + 'x' + size.y.toFixed(1) + 'x' + size.z.toFixed(1) + 'm, scale=' + scale.toFixed(4) + ')');
+        guideText.textContent = hitTestSource ? 'Point at floor, tap to place' : 'Tap to place model';
       } catch (err) {
-        guideText.textContent = 'Model load failed — tap X to exit';
+        log('Model FAILED: ' + err.message);
+        guideText.textContent = 'Model failed to load — tap X';
       }
 
-      // ── Tap to place ──
+      // ── 5. Place on tap (XR select event) ──
       session.addEventListener('select', function () {
+        selectCount++;
+        log('select #' + selectCount + ' modelLoaded=' + modelLoaded + ' placed=' + placed + ' reticle=' + reticle.visible);
         if (!modelLoaded || placed) return;
 
         if (reticle.visible) {
-          const pos = new THREE.Vector3();
-          pos.setFromMatrixPosition(reticle.matrix);
+          const pos = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
           modelGroup.position.copy(pos);
+          log('Placed at reticle: ' + pos.x.toFixed(2) + ',' + pos.y.toFixed(2) + ',' + pos.z.toFixed(2));
         } else {
-          // No surface detected yet: place 2m in front, 1.3m below camera (approx floor)
           const cam = renderer.xr.getCamera();
-          const dir = new THREE.Vector3(0, 0, -2).applyQuaternion(cam.quaternion);
-          const camPos = cam.position;
-          modelGroup.position.set(camPos.x + dir.x, camPos.y - 1.3, camPos.z + dir.z);
+          const fwd = new THREE.Vector3(0, 0, -2).applyQuaternion(cam.quaternion);
+          modelGroup.position.set(cam.position.x + fwd.x, cam.position.y - 1.3, cam.position.z + fwd.z);
+          log('Placed in front (no surface)');
         }
-
         modelGroup.visible = true;
         placed = true;
         reticle.visible = false;
-
         guideText.textContent = 'Pinch to resize · Drag to rotate';
-        setTimeout(function () {
-          guideText.parentElement.style.opacity = '0';
-          guideText.parentElement.style.transition = 'opacity 1s ease';
-        }, 4000);
+        setTimeout(() => { guideText.parentElement.style.opacity = '0'; guideText.parentElement.style.transition = 'opacity 1s'; }, 4000);
       });
 
-      // ── Touch gestures (on dom-overlay) ──
-      let activeTouches = {};
-      let pinchStartDist = 0;
-      let pinchStartScale = 1;
-      let lastTouchX = 0;
+      // ── 6. Gestures ──
+      let touches = {};
+      let pinchDist0 = 0, pinchScale0 = 1, lastX = 0;
 
-      overlay.addEventListener('touchstart', function (e) {
-        for (let i = 0; i < e.changedTouches.length; i++) {
-          const t = e.changedTouches[i];
-          activeTouches[t.identifier] = { x: t.clientX, y: t.clientY };
+      overlay.addEventListener('touchstart', e => {
+        for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
+        const k = Object.keys(touches);
+        if (k.length === 2 && placed) {
+          const a = touches[k[0]], b = touches[k[1]];
+          pinchDist0 = Math.hypot(b.x - a.x, b.y - a.y);
+          pinchScale0 = modelGroup.scale.x;
         }
-        const keys = Object.keys(activeTouches);
-        if (keys.length === 2 && placed) {
-          const a = activeTouches[keys[0]], b = activeTouches[keys[1]];
-          pinchStartDist = Math.hypot(b.x - a.x, b.y - a.y);
-          pinchStartScale = modelGroup.scale.x;
-        }
-        if (keys.length === 1 && placed) {
-          lastTouchX = activeTouches[keys[0]].x;
+        if (k.length === 1 && placed) lastX = touches[k[0]].x;
+      }, { passive: true });
+
+      overlay.addEventListener('touchmove', e => {
+        for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
+        const k = Object.keys(touches);
+        if (k.length === 2 && pinchDist0 > 0 && placed) {
+          const a = touches[k[0]], b = touches[k[1]];
+          const d = Math.hypot(b.x - a.x, b.y - a.y);
+          modelGroup.scale.setScalar(Math.max(0.05, Math.min(10, pinchScale0 * d / pinchDist0)));
+        } else if (k.length === 1 && placed) {
+          modelGroup.rotation.y += (touches[k[0]].x - lastX) * 0.008;
+          lastX = touches[k[0]].x;
         }
       }, { passive: true });
 
-      overlay.addEventListener('touchmove', function (e) {
-        for (let i = 0; i < e.changedTouches.length; i++) {
-          const t = e.changedTouches[i];
-          activeTouches[t.identifier] = { x: t.clientX, y: t.clientY };
-        }
-        const keys = Object.keys(activeTouches);
-
-        if (keys.length === 2 && pinchStartDist > 0 && placed) {
-          const a = activeTouches[keys[0]], b = activeTouches[keys[1]];
-          const dist = Math.hypot(b.x - a.x, b.y - a.y);
-          const ratio = dist / pinchStartDist;
-          const s = Math.max(0.05, Math.min(10, pinchStartScale * ratio));
-          modelGroup.scale.setScalar(s);
-        } else if (keys.length === 1 && placed) {
-          const dx = activeTouches[keys[0]].x - lastTouchX;
-          modelGroup.rotation.y += dx * 0.008;
-          lastTouchX = activeTouches[keys[0]].x;
-        }
+      overlay.addEventListener('touchend', e => {
+        for (const t of e.changedTouches) delete touches[t.identifier];
+        if (Object.keys(touches).length < 2) pinchDist0 = 0;
       }, { passive: true });
 
-      overlay.addEventListener('touchend', function (e) {
-        for (let i = 0; i < e.changedTouches.length; i++) {
-          delete activeTouches[e.changedTouches[i].identifier];
-        }
-        if (Object.keys(activeTouches).length < 2) pinchStartDist = 0;
-      }, { passive: true });
-
-      // ── Close button (use touchend — more reliable in XR dom-overlay) ──
-      function endSession() {
-        try { session.end(); } catch (e) {}
+      // ── 7. Close button ──
+      function doClose(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        log('Close tapped');
+        try { session.end(); } catch (ex) { log('session.end error: ' + ex.message); doCleanup(); }
       }
-      closeBtn.addEventListener('click', endSession);
-      closeBtn.addEventListener('touchend', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        endSession();
-      });
+      closeBtn.ontouchstart = doClose;
+      closeBtn.onclick = doClose;
 
-      // ── Cleanup function (runs on any exit) ──
+      // ── 8. Cleanup ──
       let cleaned = false;
-      function cleanup() {
+      function doCleanup() {
         if (cleaned) return;
         cleaned = true;
-        currentSession = null;
+        log('Cleanup');
         try { renderer.setAnimationLoop(null); } catch (e) {}
-        try {
-          if (renderer.domElement.parentNode) {
-            renderer.domElement.parentNode.removeChild(renderer.domElement);
-          }
-          renderer.dispose();
-        } catch (e) {}
+        try { renderer.domElement.remove(); } catch (e) {}
+        try { renderer.dispose(); } catch (e) {}
         try { dracoLoader.dispose(); } catch (e) {}
-        scene.traverse(function (obj) {
-          if (obj.geometry) obj.geometry.dispose();
-          if (obj.material) {
-            if (Array.isArray(obj.material)) obj.material.forEach(function (m) { m.dispose(); });
-            else obj.material.dispose();
-          }
+        scene.traverse(o => {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
         });
-        viewer.style.display = '';
+        viewerEl.style.display = '';
         overlay.classList.remove('active');
         guideText.parentElement.style.opacity = '';
         guideText.parentElement.style.transition = '';
+        closeBtn.ontouchstart = null;
+        closeBtn.onclick = null;
+        cleanupFn = null;
       }
+      cleanupFn = doCleanup;
 
-      // ── Render loop ──
-      renderer.setAnimationLoop(function (timestamp, frame) {
+      // ── 9. Render loop ──
+      renderer.setAnimationLoop(function (ts, frame) {
         if (!placed && frame && hitTestSource) {
-          const refSpace = renderer.xr.getReferenceSpace();
+          const ref = renderer.xr.getReferenceSpace();
           const results = frame.getHitTestResults(hitTestSource);
           if (results.length > 0) {
-            const pose = results[0].getPose(refSpace);
+            const pose = results[0].getPose(ref);
             if (pose) {
               reticle.visible = true;
               reticle.matrix.fromArray(pose.transform.matrix);
+              hitCount++;
+              if (hitCount === 1) log('First surface detected');
+              if (modelLoaded && hitCount === 1) guideText.textContent = 'Tap to place model here';
             }
           } else {
             reticle.visible = false;
@@ -583,14 +573,16 @@
         renderer.render(scene, camera);
       });
 
-      // ── Session end (fires however the session ends) ──
-      return new Promise(function (resolve) {
-        session.addEventListener('end', function () {
-          cleanup();
-          resolve();
-        });
+      // ── 10. Session end ──
+      return new Promise(resolve => {
+        session.addEventListener('end', () => { log('Session ended'); doCleanup(); resolve(); });
       });
     };
+
+    // Safety net: clean up if page navigates or visibility changes
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && cleanupFn) cleanupFn();
+    });
   </script>
 </body>
 </html>
