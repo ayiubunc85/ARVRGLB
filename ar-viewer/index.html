@@ -458,14 +458,15 @@
         reticle.visible = false;
         // Enable touch gestures on overlay now that model is placed
         overlay.style.pointerEvents = 'auto';
-        guideText.textContent = 'Drag to move · Pinch to resize · Two-finger twist to rotate';
+        guideText.textContent = 'Swipe to rotate · Pinch to resize · Two-finger drag to move';
         setTimeout(() => { guideText.parentElement.style.opacity = '0'; guideText.parentElement.style.transition = 'opacity 1s'; }, 5000);
       });
 
       // ── 5. Gestures (active after placement, when overlay captures touches) ──
       let touches = {};
-      let pinchDist0 = 0, pinchScale0 = 1, pinchAngle0 = 0, pinchRot0 = 0;
+      let pinchDist0 = 0, pinchScale0 = 1;
       let lastX = 0, lastY = 0;
+      let twoLastMidX = 0, twoLastMidY = 0;
 
       overlay.addEventListener('touchstart', e => {
         // Don't interfere with close button
@@ -476,8 +477,8 @@
           const a = touches[k[0]], b = touches[k[1]];
           pinchDist0 = Math.hypot(b.x - a.x, b.y - a.y);
           pinchScale0 = modelGroup.scale.x;
-          pinchAngle0 = Math.atan2(b.y - a.y, b.x - a.x);
-          pinchRot0 = modelGroup.rotation.y;
+          twoLastMidX = (a.x + b.x) / 2;
+          twoLastMidY = (a.y + b.y) / 2;
         }
         if (k.length === 1 && placed) {
           lastX = touches[k[0]].x;
@@ -495,27 +496,23 @@
           // Pinch to scale
           const d = Math.hypot(b.x - a.x, b.y - a.y);
           modelGroup.scale.setScalar(Math.max(0.02, Math.min(20, pinchScale0 * d / pinchDist0)));
-          // Twist to rotate
-          const angle = Math.atan2(b.y - a.y, b.x - a.x);
-          modelGroup.rotation.y = pinchRot0 + (angle - pinchAngle0);
-        } else if (k.length === 1 && placed) {
-          // One-finger drag: move along floor plane relative to camera
-          const dx = touches[k[0]].x - lastX;
-          const dy = touches[k[0]].y - lastY;
-          lastX = touches[k[0]].x;
-          lastY = touches[k[0]].y;
-
+          // Two-finger drag to move along floor plane
+          const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
+          const dmx = midX - twoLastMidX, dmy = midY - twoLastMidY;
+          twoLastMidX = midX; twoLastMidY = midY;
           const cam = renderer.xr.getCamera();
-          // Camera right vector projected onto XZ plane
           const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
           right.y = 0; right.normalize();
-          // Camera forward vector projected onto XZ plane
           const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
           forward.y = 0; forward.normalize();
-
-          const speed = 0.002;
-          modelGroup.position.x += right.x * dx * speed - forward.x * dy * speed;
-          modelGroup.position.z += right.z * dx * speed - forward.z * dy * speed;
+          const speed = 0.003;
+          modelGroup.position.x += right.x * dmx * speed - forward.x * dmy * speed;
+          modelGroup.position.z += right.z * dmx * speed - forward.z * dmy * speed;
+        } else if (k.length === 1 && placed) {
+          // Single-finger swipe to rotate
+          const dx = touches[k[0]].x - lastX;
+          lastX = touches[k[0]].x;
+          modelGroup.rotation.y += dx * 0.008;
         }
       }, { passive: true });
 
