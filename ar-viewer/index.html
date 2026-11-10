@@ -511,7 +511,6 @@
         try { renderer.setAnimationLoop(null); } catch (e) {}
         try { renderer.domElement.remove(); } catch (e) {}
         try { renderer.dispose(); } catch (e) {}
-        try { dracoLoader.dispose(); } catch (e) {}
         scene.traverse(o => {
           if (o.geometry) o.geometry.dispose();
           if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
@@ -549,13 +548,19 @@
       log('Render loop started');
 
       // ── 10. Load model AFTER render loop is running (non-blocking) ──
-      const dracoLoader = new DRACOLoader();
-      dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/libs/draco/');
-      const gltfLoader = new GLTFLoader();
-      gltfLoader.setDRACODecoder(dracoLoader);
-      log('Loading model…');
+      log('Fetching ' + modelUrl.split('/').pop() + '…');
 
-      gltfLoader.loadAsync(modelUrl).then(gltf => {
+      fetch(modelUrl).then(resp => {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        log('Fetch OK, reading bytes…');
+        return resp.arrayBuffer();
+      }).then(buffer => {
+        log('Got ' + (buffer.byteLength / 1048576).toFixed(1) + ' MB, parsing GLB…');
+        const gltfLoader = new GLTFLoader();
+        return new Promise((resolve, reject) => {
+          gltfLoader.parse(buffer, '', resolve, reject);
+        });
+      }).then(gltf => {
         const model = gltf.scene;
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
@@ -566,10 +571,10 @@
         model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
         modelGroup.add(model);
         modelLoaded = true;
-        log('Model ready (' + size.x.toFixed(1) + 'x' + size.y.toFixed(1) + 'x' + size.z.toFixed(1) + ')');
+        log('Model ready! Tap floor to place');
         guideText.textContent = reticle.visible ? 'Tap to place model here' : 'Point at floor, tap to place';
       }).catch(err => {
-        log('Model FAILED: ' + err.message);
+        log('FAIL: ' + (err.message || err));
         guideText.textContent = 'Model failed — tap X to exit';
       });
 
