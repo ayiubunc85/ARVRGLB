@@ -170,29 +170,57 @@
       color: rgba(255, 255, 255, 0.5);
     }
 
-    /* ── AR Hint (shown below info bar when AR is available) ── */
+    /* ── AR guidance overlay ── */
 
-    .ar-hint {
+    .ar-guide {
       position: fixed;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.7);
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 16px;
+      padding-top: max(16px, env(safe-area-inset-top));
+      text-align: center;
+      z-index: 30;
+      pointer-events: none;
+      display: none;
+    }
+
+    .ar-guide.visible { display: block; }
+
+    .ar-guide-text {
+      display: inline-block;
+      background: rgba(0, 0, 0, 0.75);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border-radius: 12px;
       padding: 12px 20px;
-      font-size: 13px;
-      color: rgba(255, 255, 255, 0.8);
-      text-align: center;
-      z-index: 10;
-      opacity: 0;
-      transition: opacity 0.4s ease;
-      pointer-events: none;
-      white-space: nowrap;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.9);
+      line-height: 1.4;
     }
 
-    .ar-hint.visible { opacity: 1; }
+    /* ── AR exit button ── */
+
+    .ar-exit-btn {
+      position: fixed;
+      top: 16px;
+      top: max(16px, env(safe-area-inset-top));
+      right: 16px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.6);
+      border: none;
+      color: white;
+      font-size: 20px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      cursor: pointer;
+    }
+
+    .ar-exit-btn.visible { display: flex; }
 
     /* ── No-AR notice ── */
 
@@ -271,7 +299,7 @@
       cursor: pointer;
     }
   </style>
-  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
 </head>
 <body>
 
@@ -296,8 +324,13 @@
     <span class="model-size" id="modelSize"></span>
   </div>
 
-  <!-- AR hint (animated prompt above the button) -->
-  <div class="ar-hint" id="arHint">Tap below to view in your space</div>
+  <!-- AR guidance (shown during AR session) -->
+  <div class="ar-guide" id="arGuide">
+    <span class="ar-guide-text" id="arGuideText">Point your phone at the floor and move it slowly</span>
+  </div>
+
+  <!-- AR exit button (shown during AR session) -->
+  <button class="ar-exit-btn" id="arExitBtn">&times;</button>
 
   <!-- No-AR fallback notice -->
   <div class="no-ar-notice" id="noArNotice">
@@ -315,7 +348,7 @@
     id="viewer"
     ar
     ar-modes="webxr scene-viewer quick-look"
-    ar-scale="auto"
+    ar-scale="fixed"
     ar-placement="floor"
     camera-controls
     touch-action="pan-y"
@@ -343,9 +376,13 @@
       var infoBar = document.getElementById('infoBar');
       var modelNameEl = document.getElementById('modelName');
       var modelSizeEl = document.getElementById('modelSize');
-      var arHint = document.getElementById('arHint');
       var arBtn = document.getElementById('arBtn');
+      var arGuide = document.getElementById('arGuide');
+      var arGuideText = document.getElementById('arGuideText');
+      var arExitBtn = document.getElementById('arExitBtn');
       var noArNotice = document.getElementById('noArNotice');
+
+      var isInAR = false;
 
       // Parse model ID from URL: /ar/my-model
       var pathParts = window.location.pathname.split('/');
@@ -373,6 +410,22 @@
           viewer.activateAR();
         }
       });
+
+      // AR exit button ends the XR session
+      arExitBtn.addEventListener('click', function () {
+        exitAR();
+      });
+
+      function exitAR() {
+        try {
+          // model-viewer exposes the XR session — end it if active
+          if (viewer.xrSession) {
+            viewer.xrSession.end();
+          }
+        } catch (e) {
+          // Fallback: toggle AR off
+        }
+      }
 
       function startLoading() {
         loadingStatus.textContent = 'Connecting…';
@@ -440,7 +493,6 @@
       }
 
       function loadModel(info) {
-        // Build absolute URLs from the phone's own origin so Scene Viewer / Quick Look can fetch them
         var glbSrc = baseUrl + '/models/' + encodeURIComponent(modelId) + '.glb';
         var usdzSrc = baseUrl + '/models/' + encodeURIComponent(modelId) + '.usdz';
         if (info.hasGlb) viewer.setAttribute('src', glbSrc);
@@ -470,14 +522,10 @@
           viewer.style.position = 'static';
           infoBar.classList.add('visible');
 
-          // Check AR availability after a brief delay (model-viewer needs a tick)
+          // Check AR availability after a brief delay
           setTimeout(function () {
             if (viewer.canActivateAR) {
               arBtn.classList.add('visible');
-              setTimeout(function () {
-                arHint.classList.add('visible');
-                setTimeout(function () { arHint.classList.remove('visible'); }, 4000);
-              }, 1200);
             } else {
               noArNotice.classList.add('visible');
             }
@@ -486,21 +534,71 @@
 
         // AR session events
         viewer.addEventListener('ar-status', function (e) {
-          if (e.detail.status === 'session-started') {
-            arHint.classList.remove('visible');
+          var status = e.detail.status;
+
+          if (status === 'session-started') {
+            isInAR = true;
             arBtn.classList.remove('visible');
             infoBar.classList.remove('visible');
-          } else if (e.detail.status === 'not-presenting') {
+            arGuide.classList.add('visible');
+            arExitBtn.classList.add('visible');
+
+            // Update guide text after a few seconds
+            setTimeout(function () {
+              if (isInAR) {
+                arGuideText.textContent = 'Pinch to resize · Drag to move';
+              }
+            }, 5000);
+
+            // Hide guide after 10s
+            setTimeout(function () {
+              arGuide.classList.remove('visible');
+            }, 10000);
+
+          } else if (status === 'not-presenting') {
+            isInAR = false;
+            arGuide.classList.remove('visible');
+            arExitBtn.classList.remove('visible');
+
+            // Reset model-viewer to clean state after AR exit
+            setTimeout(function () {
+              try {
+                viewer.resetTurntableRotation();
+                viewer.jumpCameraToGoal();
+              } catch (e) {}
+              arBtn.classList.add('visible');
+              infoBar.classList.add('visible');
+            }, 300);
+
+          } else if (status === 'failed') {
+            isInAR = false;
+            arGuide.classList.remove('visible');
+            arExitBtn.classList.remove('visible');
             arBtn.classList.add('visible');
             infoBar.classList.add('visible');
-          } else if (e.detail.status === 'failed') {
-            arBtn.classList.add('visible');
-            infoBar.classList.add('visible');
-            noArNotice.textContent = 'AR failed to start. Try opening this page in Chrome or Safari.';
+            noArNotice.textContent = 'AR failed to start. Try closing other apps and retry.';
             noArNotice.classList.add('visible');
             setTimeout(function () { noArNotice.classList.remove('visible'); }, 5000);
           }
         });
+
+        // Handle WebGL context loss (can happen after AR session)
+        var canvas = viewer.shadowRoot && viewer.shadowRoot.querySelector('canvas');
+        if (canvas) {
+          canvas.addEventListener('webglcontextlost', function (e) {
+            e.preventDefault();
+          });
+          canvas.addEventListener('webglcontextrestored', function () {
+            // model-viewer should auto-restore, but force an update
+            var currentSrc = viewer.getAttribute('src');
+            if (currentSrc) {
+              viewer.setAttribute('src', '');
+              requestAnimationFrame(function () {
+                viewer.setAttribute('src', currentSrc);
+              });
+            }
+          });
+        }
 
         // Error loading the model file
         viewer.addEventListener('error', function () {
@@ -529,13 +627,16 @@
         errorEl.classList.add('visible');
       }
 
-      // Hide info bar on scroll/interaction, show on idle
+      // Hide info bar on interaction, show on idle
       var hideTimer;
       viewer.addEventListener('camera-change', function () {
+        if (isInAR) return;
         infoBar.classList.remove('visible');
         clearTimeout(hideTimer);
         hideTimer = setTimeout(function () {
-          if (viewer.style.visibility !== 'hidden') infoBar.classList.add('visible');
+          if (viewer.style.visibility !== 'hidden' && !isInAR) {
+            infoBar.classList.add('visible');
+          }
         }, 2000);
       });
     })();
