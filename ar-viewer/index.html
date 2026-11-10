@@ -437,42 +437,16 @@
         guideText.textContent = 'Tap anywhere to place model';
       }
 
-      // ── 4. Load model (parallel) ──
-      const dracoLoader = new DRACOLoader();
-      dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/libs/draco/');
-      const gltfLoader = new GLTFLoader();
-      gltfLoader.setDRACODecoder(dracoLoader);
-      log('Loading model…');
-
-      try {
-        const gltf = await gltfLoader.loadAsync(modelUrl);
-        const model = gltf.scene;
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 0.4 / maxDim;
-        model.scale.setScalar(scale);
-        model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
-        modelGroup.add(model);
-        modelLoaded = true;
-        log('Model loaded (' + size.x.toFixed(1) + 'x' + size.y.toFixed(1) + 'x' + size.z.toFixed(1) + 'm, scale=' + scale.toFixed(4) + ')');
-        guideText.textContent = hitTestSource ? 'Point at floor, tap to place' : 'Tap to place model';
-      } catch (err) {
-        log('Model FAILED: ' + err.message);
-        guideText.textContent = 'Model failed to load — tap X';
-      }
-
-      // ── 5. Place on tap (XR select event) ──
+      // ── 4. Place on tap (XR select event) ──
       session.addEventListener('select', function () {
         selectCount++;
-        log('select #' + selectCount + ' modelLoaded=' + modelLoaded + ' placed=' + placed + ' reticle=' + reticle.visible);
+        log('select #' + selectCount + ' loaded=' + modelLoaded + ' placed=' + placed + ' reticle=' + reticle.visible);
         if (!modelLoaded || placed) return;
 
         if (reticle.visible) {
           const pos = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
           modelGroup.position.copy(pos);
-          log('Placed at reticle: ' + pos.x.toFixed(2) + ',' + pos.y.toFixed(2) + ',' + pos.z.toFixed(2));
+          log('Placed at reticle');
         } else {
           const cam = renderer.xr.getCamera();
           const fwd = new THREE.Vector3(0, 0, -2).applyQuaternion(cam.quaternion);
@@ -486,7 +460,7 @@
         setTimeout(() => { guideText.parentElement.style.opacity = '0'; guideText.parentElement.style.transition = 'opacity 1s'; }, 4000);
       });
 
-      // ── 6. Gestures ──
+      // ── 5. Gestures ──
       let touches = {};
       let pinchDist0 = 0, pinchScale0 = 1, lastX = 0;
 
@@ -552,7 +526,7 @@
       }
       cleanupFn = doCleanup;
 
-      // ── 9. Render loop ──
+      // ── 9. Render loop — START IMMEDIATELY so XR session stays alive ──
       renderer.setAnimationLoop(function (ts, frame) {
         if (!placed && frame && hitTestSource) {
           const ref = renderer.xr.getReferenceSpace();
@@ -572,8 +546,34 @@
         }
         renderer.render(scene, camera);
       });
+      log('Render loop started');
 
-      // ── 10. Session end ──
+      // ── 10. Load model AFTER render loop is running (non-blocking) ──
+      const dracoLoader = new DRACOLoader();
+      dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/libs/draco/');
+      const gltfLoader = new GLTFLoader();
+      gltfLoader.setDRACODecoder(dracoLoader);
+      log('Loading model…');
+
+      gltfLoader.loadAsync(modelUrl).then(gltf => {
+        const model = gltf.scene;
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 0.4 / maxDim;
+        model.scale.setScalar(scale);
+        model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+        modelGroup.add(model);
+        modelLoaded = true;
+        log('Model ready (' + size.x.toFixed(1) + 'x' + size.y.toFixed(1) + 'x' + size.z.toFixed(1) + ')');
+        guideText.textContent = reticle.visible ? 'Tap to place model here' : 'Point at floor, tap to place';
+      }).catch(err => {
+        log('Model FAILED: ' + err.message);
+        guideText.textContent = 'Model failed — tap X to exit';
+      });
+
+      // ── 11. Session end ──
       return new Promise(resolve => {
         session.addEventListener('end', () => { log('Session ended'); doCleanup(); resolve(); });
       });
