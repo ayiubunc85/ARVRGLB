@@ -122,12 +122,6 @@
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; pointer-events: auto;
     }
-    .ar-debug {
-      position: fixed; bottom: 16px; left: 16px; right: 16px;
-      background: rgba(0,0,0,0.7); border-radius: 8px; padding: 8px 12px;
-      font-size: 11px; color: rgba(255,255,255,0.7); pointer-events: none;
-      font-family: monospace; max-height: 120px; overflow-y: auto;
-    }
   </style>
 
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
@@ -174,7 +168,6 @@
       <span class="ar-guide-pill" id="arGuideText">Move your phone slowly to scan the floor</span>
     </div>
     <button class="ar-close-btn" id="arCloseBtn">&times;</button>
-    <div class="ar-debug" id="arDebug"></div>
   </div>
 
   <!-- ── 3D Preview Logic ── -->
@@ -352,26 +345,15 @@
     const overlay = document.getElementById('arOverlay');
     const guideText = document.getElementById('arGuideText');
     const closeBtn = document.getElementById('arCloseBtn');
-    const debugEl = document.getElementById('arDebug');
     const viewerEl = document.getElementById('viewer');
-
-    function log(msg) {
-      const line = document.createElement('div');
-      line.textContent = msg;
-      debugEl.appendChild(line);
-      debugEl.scrollTop = debugEl.scrollHeight;
-    }
 
     // Global cleanup — called on any exit path
     let cleanupFn = null;
 
     window.startCustomAR = async function (modelUrl) {
       overlay.classList.add('active');
-      debugEl.innerHTML = '';
       guideText.textContent = 'Starting AR…';
-      log('Requesting XR session…');
 
-      // ── 1. Request XR session immediately (preserves user gesture) ──
       let session;
       try {
         session = await navigator.xr.requestSession('immersive-ar', {
@@ -382,9 +364,7 @@
         overlay.classList.remove('active');
         throw new Error('XR session: ' + (err.message || err));
       }
-      log('XR session started');
 
-      // ── 2. Three.js renderer ──
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -395,9 +375,7 @@
 
       renderer.xr.setReferenceSpaceType('local-floor');
       await renderer.xr.setSession(session);
-      log('Renderer bound to XR');
 
-      // Hide model-viewer
       viewerEl.style.display = 'none';
 
       // Lighting
@@ -423,35 +401,26 @@
       let placed = false;
       let modelLoaded = false;
       let hitTestSource = null;
-      let selectCount = 0;
       let hitCount = 0;
 
-      // ── 3. Hit-test (optional) ──
       try {
         const vSpace = await session.requestReferenceSpace('viewer');
         hitTestSource = await session.requestHitTestSource({ space: vSpace });
-        log('Hit-test enabled');
         guideText.textContent = 'Move phone slowly to find the floor';
       } catch (e) {
-        log('Hit-test unavailable: ' + e.message);
         guideText.textContent = 'Tap anywhere to place model';
       }
 
-      // ── 4. Place on tap (XR select event) ──
       session.addEventListener('select', function () {
-        selectCount++;
-        log('select #' + selectCount + ' loaded=' + modelLoaded + ' placed=' + placed + ' reticle=' + reticle.visible);
         if (!modelLoaded || placed) return;
 
         if (reticle.visible) {
           const pos = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
           modelGroup.position.copy(pos);
-          log('Placed at reticle');
         } else {
           const cam = renderer.xr.getCamera();
           const fwd = new THREE.Vector3(0, 0, -2).applyQuaternion(cam.quaternion);
           modelGroup.position.set(cam.position.x + fwd.x, cam.position.y - 1.3, cam.position.z + fwd.z);
-          log('Placed in front (no surface)');
         }
         modelGroup.visible = true;
         placed = true;
@@ -524,8 +493,7 @@
       // ── 7. Close button ──
       function doClose(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
-        log('Close tapped');
-        try { session.end(); } catch (ex) { log('session.end error: ' + ex.message); doCleanup(); }
+        try { session.end(); } catch (ex) { doCleanup(); }
       }
       closeBtn.ontouchstart = doClose;
       closeBtn.onclick = doClose;
@@ -535,7 +503,6 @@
       function doCleanup() {
         if (cleaned) return;
         cleaned = true;
-        log('Cleanup');
         try { renderer.setAnimationLoop(null); } catch (e) {}
         try { renderer.domElement.remove(); } catch (e) {}
         try { renderer.dispose(); } catch (e) {}
@@ -565,7 +532,6 @@
               reticle.visible = true;
               reticle.matrix.fromArray(pose.transform.matrix);
               hitCount++;
-              if (hitCount === 1) log('First surface detected');
               if (modelLoaded && hitCount === 1) guideText.textContent = 'Tap to place model here';
             }
           } else {
@@ -574,17 +540,11 @@
         }
         renderer.render(scene, camera);
       });
-      log('Render loop started');
-
-      // ── 10. Load model AFTER render loop is running (non-blocking) ──
-      log('Fetching ' + modelUrl.split('/').pop() + '…');
 
       fetch(modelUrl).then(resp => {
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        log('Fetch OK, reading bytes…');
         return resp.arrayBuffer();
       }).then(buffer => {
-        log('Got ' + (buffer.byteLength / 1048576).toFixed(1) + ' MB, parsing GLB…');
         const gltfLoader = new GLTFLoader();
         return new Promise((resolve, reject) => {
           gltfLoader.parse(buffer, '', resolve, reject);
@@ -600,16 +560,13 @@
         model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
         modelGroup.add(model);
         modelLoaded = true;
-        log('Model ready! Tap floor to place');
         guideText.textContent = reticle.visible ? 'Tap to place model here' : 'Point at floor, tap to place';
-      }).catch(err => {
-        log('FAIL: ' + (err.message || err));
+      }).catch(() => {
         guideText.textContent = 'Model failed — tap X to exit';
       });
 
-      // ── 11. Session end ──
       return new Promise(resolve => {
-        session.addEventListener('end', () => { log('Session ended'); doCleanup(); resolve(); });
+        session.addEventListener('end', () => { doCleanup(); resolve(); });
       });
     };
 
