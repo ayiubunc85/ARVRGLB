@@ -426,7 +426,7 @@
           );
         });
 
-        // Timeout — if model hasn't loaded in 30s
+        // Timeout — if model hasn't loaded in 120s
         setTimeout(function () {
           if (!loading.classList.contains('hidden')) {
             showError(
@@ -434,7 +434,7 @@
               'The model is taking too long to load. It may be too large for this connection.'
             );
           }
-        }, 30000);
+        }, 120000);
       }
 
       function showError(title, msg) {
