@@ -382,7 +382,7 @@
       let session;
       try {
         session = await navigator.xr.requestSession('immersive-ar', {
-          optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor'],
+          optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor', 'light-estimation'],
           domOverlay: { root: overlay },
         });
       } catch (err) {
@@ -396,6 +396,9 @@
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.0;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
       document.body.appendChild(renderer.domElement);
 
       renderer.xr.setReferenceSpaceType('local-floor');
@@ -403,11 +406,43 @@
 
       viewerEl.style.display = 'none';
 
-      // Lighting
-      scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.2));
-      const dl = new THREE.DirectionalLight(0xffffff, 0.8);
-      dl.position.set(0.5, 1, 0.3);
-      scene.add(dl);
+      // ── Lighting: fallback lights + environment map ──
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.0);
+      scene.add(hemiLight);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+      dirLight.position.set(0.5, 1.5, 0.5);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.setScalar(512);
+      dirLight.shadow.camera.near = 0.1;
+      dirLight.shadow.camera.far = 10;
+      dirLight.shadow.camera.left = -2;
+      dirLight.shadow.camera.right = 2;
+      dirLight.shadow.camera.top = 2;
+      dirLight.shadow.camera.bottom = -2;
+      dirLight.shadow.bias = -0.001;
+      scene.add(dirLight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.VSMShadowMap;
+
+      // Neutral environment map for PBR reflections
+      const pmremGen = new THREE.PMREMGenerator(renderer);
+      pmremGen.compileEquirectangularShader();
+      const neutralEnv = pmremGen.fromScene(new THREE.Scene()).texture;
+      scene.environment = neutralEnv;
+
+      // Ground shadow plane (invisible except shadow)
+      const shadowPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(10, 10),
+        new THREE.ShadowMaterial({ opacity: 0.35 })
+      );
+      shadowPlane.rotation.x = -Math.PI / 2;
+      shadowPlane.receiveShadow = true;
+      shadowPlane.visible = false;
+      scene.add(shadowPlane);
+
+      // WebXR light estimation
+      let xrLightProbe = null;
+      try { xrLightProbe = await session.requestLightProbe(); } catch (e) {}
 
       // Reticle
       const reticle = new THREE.Mesh(
@@ -466,6 +501,9 @@
         modelGroup.visible = true;
         placed = true;
         reticle.visible = false;
+        shadowPlane.position.set(modelGroup.position.x, modelGroup.position.y, modelGroup.position.z);
+        shadowPlane.visible = true;
+        dirLight.target = modelGroup;
         overlay.style.pointerEvents = 'auto';
         guideText.textContent = 'Swipe to rotate · Pinch to resize · Two-finger drag to move';
         setTimeout(() => { guideText.parentElement.style.opacity = '0'; guideText.parentElement.style.transition = 'opacity 1s'; }, 5000);
@@ -557,6 +595,7 @@
         if (cleaned) return;
         cleaned = true;
         try { renderer.setAnimationLoop(null); } catch (e) {}
+        try { pmremGen.dispose(); neutralEnv.dispose(); } catch (e) {}
         try { renderer.domElement.remove(); } catch (e) {}
         try { renderer.dispose(); } catch (e) {}
         scene.traverse(o => {
@@ -592,6 +631,29 @@
             reticle.visible = false;
           }
         }
+        // Light estimation: match virtual light to real environment
+        if (xrLightProbe && frame) {
+          const estimate = frame.getLightEstimate(xrLightProbe);
+          if (estimate) {
+            const i = Math.max(
+              estimate.primaryLightIntensity.x,
+              estimate.primaryLightIntensity.y,
+              estimate.primaryLightIntensity.z
+            );
+            dirLight.intensity = Math.min(i, 3.0);
+            dirLight.color.setRGB(
+              estimate.primaryLightIntensity.x / (i || 1),
+              estimate.primaryLightIntensity.y / (i || 1),
+              estimate.primaryLightIntensity.z / (i || 1)
+            );
+            const dir = estimate.primaryLightDirection;
+            if (dir) dirLight.position.set(dir.x, dir.y, dir.z);
+            const sh = estimate.sphericalHarmonicsCoefficients;
+            if (sh && sh.length >= 9) {
+              hemiLight.intensity = Math.min(Math.sqrt(sh[0]*sh[0] + sh[1]*sh[1] + sh[2]*sh[2]), 2.0);
+            }
+          }
+        }
         renderer.render(scene, camera);
       });
 
@@ -613,6 +675,7 @@
         initialScale = scale;
         model.scale.setScalar(scale);
         model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+        model.traverse(child => { if (child.isMesh) child.castShadow = true; });
         modelGroup.add(model);
         modelLoaded = true;
         guideText.textContent = reticle.visible ? 'Tap to place model here' : 'Point at floor, tap to place';
