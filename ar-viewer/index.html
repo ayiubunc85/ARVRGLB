@@ -474,14 +474,14 @@
       });
 
       // 1:1 scale button
-      btn11.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); });
-      btn11.addEventListener('click', e => {
-        e.stopPropagation();
+      function do11(e) {
+        e.preventDefault(); e.stopPropagation();
         if (!placed) return;
-        const target = 1.0 / initialScale;
-        modelGroup.scale.setScalar(target);
+        modelGroup.scale.setScalar(1.0 / initialScale);
         updateScaleUI();
-      });
+      }
+      btn11.ontouchend = do11;
+      btn11.onclick = do11;
 
       // ── 5. Gestures (active after placement, when overlay captures touches) ──
       let touches = {};
