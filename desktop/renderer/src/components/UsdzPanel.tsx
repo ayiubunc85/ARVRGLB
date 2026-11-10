@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-const API_BASE = 'http://localhost:3456';
+const API_BASE = '';
 
 interface UsdzPanelProps {
   modelId: string;

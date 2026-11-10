@@ -37,7 +37,7 @@ export default function ModelCard({ model, selected, onSelect }: ModelCardProps)
       }}
     >
       <ModelPreview
-        src={`http://localhost:3456/models/${model.filename}`}
+        src={`/models/${model.filename}`}
         style={{
           width: '100%',
           height: 160,

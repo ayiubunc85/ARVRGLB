@@ -25,7 +25,7 @@ interface ModelEntry {
   hasUsdz?: boolean;
 }
 
-const API_BASE = 'http://localhost:3456';
+const API_BASE = '';
 
 export default function App() {
   const [serverInfo, setServerInfo] = useState<ServerInfo | null>(null);
