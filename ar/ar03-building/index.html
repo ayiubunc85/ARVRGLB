@@ -708,7 +708,7 @@
         const effective = initialScale * modelGroup.scale.x;
         scaleBtns.forEach(b => {
           const target = parseFloat(b.dataset.scale);
-          b.classList.toggle('active', Math.abs(effective - target) < 0.005);
+          b.classList.toggle('active', target > 0 && Math.abs(effective - target) / target < 0.02);
         });
       };
 
