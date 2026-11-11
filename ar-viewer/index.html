@@ -304,30 +304,13 @@
       function startLoading() {
         loadingStatus.textContent = 'Connecting…';
         progressFill.style.width = '0%';
-        checkServer()
-          .then(function () {
-            progressFill.style.width = '20%';
-            loadingStatus.textContent = 'Fetching model info…';
-            return fetchModelInfo();
-          })
+        fetchModelInfo()
           .then(function (info) {
             progressFill.style.width = '40%';
             loadingStatus.textContent = 'Loading 3D model…';
             loadModel(info);
           })
-          .catch(function (err) { showError(err.title || 'Connection failed', err.message || err); });
-      }
-
-      function checkServer() {
-        return new Promise(function (resolve, reject) {
-          var xhr = new XMLHttpRequest();
-          xhr.open('GET', baseUrl + '/api/ping', true);
-          xhr.timeout = 5000;
-          xhr.onload = function () { xhr.status === 200 ? resolve() : reject({ title: 'Server error', message: 'Status ' + xhr.status }); };
-          xhr.onerror = function () { reject({ title: 'Cannot reach server', message: 'Make sure your phone is on the same WiFi network as the host computer.' }); };
-          xhr.ontimeout = function () { reject({ title: 'Connection timed out', message: 'The server did not respond.' }); };
-          xhr.send();
-        });
+          .catch(function (err) { showError(err.title || 'Load failed', err.message || err); });
       }
 
       function fetchModelInfo() {
@@ -338,10 +321,10 @@
           xhr.onload = function () {
             if (xhr.status === 200) resolve(JSON.parse(xhr.responseText));
             else if (xhr.status === 404) reject({ title: 'Model not found', message: '"' + modelId + '" not on server.' });
-            else reject({ title: 'Server error', message: 'Could not fetch model info.' });
+            else resolve({ hasGlb: true, hasUsdz: false });
           };
-          xhr.onerror = function () { reject({ title: 'Network error', message: 'Lost connection.' }); };
-          xhr.ontimeout = function () { reject({ title: 'Timed out', message: 'Server too slow.' }); };
+          xhr.onerror = function () { resolve({ hasGlb: true, hasUsdz: false }); };
+          xhr.ontimeout = function () { resolve({ hasGlb: true, hasUsdz: false }); };
           xhr.send();
         });
       }
@@ -353,7 +336,8 @@
 
         var displayName = modelId.replace(/[-_]/g, ' ');
         modelNameEl.textContent = displayName.charAt(0).toUpperCase() + displayName.slice(1);
-        modelSizeEl.textContent = (info.glbSizeMB || info.usdzSizeMB || '?') + ' MB';
+        var sizeMB = info.glbSizeMB || info.usdzSizeMB;
+        modelSizeEl.textContent = sizeMB ? sizeMB + ' MB' : '';
 
         viewer.addEventListener('progress', function (e) {
           progressFill.style.width = (40 + e.detail.totalProgress * 60) + '%';
