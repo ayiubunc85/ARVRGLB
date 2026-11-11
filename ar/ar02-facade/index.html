@@ -6,6 +6,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#f5f5f7">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
   <title>AR Viewer</title>
 
   <script type="importmap">
@@ -357,7 +359,8 @@
       // Expose for the AR module
       window.__arModelUrl = glbUrl;
 
-      // Back button — navigate to model dashboard
+      // Back button — navigate to model dashboard (visible immediately)
+      backBtn.classList.add('visible');
       backBtn.addEventListener('click', function () {
         var dashUrl = basePath + '/';
         window.location.href = dashUrl || '/';
@@ -440,7 +443,6 @@
           viewer.style.visibility = 'visible';
           viewer.style.position = 'static';
           infoBar.classList.add('visible');
-          backBtn.classList.add('visible');
 
           // Check if WebXR AR is available
           setTimeout(async function () {
