@@ -556,7 +556,8 @@
       let modelLoaded = false;
       let hitTestSource = null;
       let hitCount = 0;
-      let initialScale = 1; // scale applied at load to shrink model to 0.4m
+      let initialScale = 1;
+      let maxScale = 20; // capped after model loads based on physical size
 
       function updateScaleUI() {
         const effective = initialScale * modelGroup.scale.x;
@@ -609,8 +610,14 @@
       function do11(e) {
         e.preventDefault(); e.stopPropagation();
         if (!placed) return;
-        modelGroup.scale.setScalar(1.0 / initialScale);
+        const target = Math.min(1.0 / initialScale, maxScale);
+        modelGroup.scale.setScalar(target);
         updateScaleUI();
+        if (target < 1.0 / initialScale) {
+          guideText.textContent = 'Max scale reached — model too large for 1:1';
+          guideText.classList.remove('fade-out');
+          setTimeout(() => { guideText.classList.add('fade-out'); }, 3000);
+        }
       }
       btn11.ontouchend = do11;
       btn11.onclick = do11;
@@ -657,7 +664,7 @@
           const a = touches[k[0]], b = touches[k[1]];
           // Pinch to scale
           const d = Math.hypot(b.x - a.x, b.y - a.y);
-          modelGroup.scale.setScalar(Math.max(0.02, Math.min(20, pinchScale0 * d / pinchDist0)));
+          modelGroup.scale.setScalar(Math.max(0.02, Math.min(maxScale, pinchScale0 * d / pinchDist0)));
           updateScaleUI();
           // Two-finger drag to move along floor plane
           const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
@@ -777,6 +784,7 @@
         const maxDim = Math.max(size.x, size.y, size.z);
         const scale = 0.4 / maxDim;
         initialScale = scale;
+        maxScale = Math.max(1, 5.0 / (maxDim * scale));
         model.scale.setScalar(scale);
         model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
         model.traverse(child => { if (child.isMesh) child.castShadow = true; });
