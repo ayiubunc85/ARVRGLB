@@ -268,7 +268,9 @@
 
       if (!modelId) { showError('No model specified', 'The URL is missing a model name.'); return; }
 
-      var baseUrl = window.location.origin;
+      var arIndex = pathParts.indexOf('ar');
+      var basePath = arIndex > 0 ? '/' + pathParts.slice(0, arIndex).join('/') : '';
+      var baseUrl = window.location.origin + basePath;
       var glbUrl = baseUrl + '/models/' + encodeURIComponent(modelId) + '.glb';
       var usdzUrl = baseUrl + '/models/' + encodeURIComponent(modelId) + '.usdz';
 
