@@ -280,6 +280,7 @@
         <span class="label">Scale</span>
         <span class="value" id="arScaleText">—</span>
       </div>
+      <button class="ar-menu-btn" id="arResetBtn" style="background:rgba(67,97,238,0.35);color:white;">Reset</button>
       <div class="ar-menu-divider"></div>
       <div class="ar-menu-label">Percentage</div>
       <div class="ar-scale-grid">
@@ -726,6 +727,17 @@
       }
       scaleBtns.forEach(b => { b.ontouchend = setScale; b.onclick = setScale; });
 
+      // Reset to default fitted scale
+      const resetBtn = document.getElementById('arResetBtn');
+      function doReset(e) {
+        e.preventDefault(); e.stopPropagation();
+        if (!placed) return;
+        modelGroup.scale.setScalar(1);
+        updateScaleUI();
+      }
+      resetBtn.ontouchend = doReset;
+      resetBtn.onclick = doReset;
+
       // Menu toggle
       function toggleMenu(e) {
         e.preventDefault(); e.stopPropagation();
@@ -931,7 +943,7 @@
         const maxDim = Math.max(size.x, size.y, size.z);
         const scale = 0.4 / maxDim;
         initialScale = scale;
-        maxScale = Math.max(1, 5.0 / (maxDim * scale));
+        maxScale = Math.max(1, 3.0 / (maxDim * scale));
         model.scale.setScalar(scale);
         model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
         model.traverse(child => { if (child.isMesh) child.castShadow = true; });
