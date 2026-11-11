@@ -41,16 +41,29 @@
     }
     model-viewer::part(default-ar-button) { display: none; }
 
-    .ar-button {
-      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
-      background: #4361ee; border-radius: 16px; padding: 16px 36px;
-      font-size: 16px; font-weight: 600; color: white; border: none;
-      box-shadow: 0 4px 24px rgba(67,97,238,0.3); z-index: 20;
-      display: none; align-items: center; gap: 10px; cursor: pointer;
+    .back-btn {
+      position: fixed; top: 12px; left: 12px;
+      top: max(12px, env(safe-area-inset-top));
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(0,0,0,0.06); border: none;
+      display: none; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 15;
     }
-    .ar-button:active { transform: translateX(-50%) scale(0.96); }
+    .back-btn.visible { display: flex; }
+    .back-btn:active { background: rgba(0,0,0,0.12); }
+    .back-btn svg { width: 20px; height: 20px; fill: none; stroke: #1d1d1f; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .ar-button {
+      position: fixed; bottom: 28px; right: 20px;
+      bottom: max(28px, env(safe-area-inset-bottom));
+      width: 56px; height: 56px; border-radius: 50%;
+      background: #4361ee; border: none;
+      box-shadow: 0 4px 16px rgba(67,97,238,0.35); z-index: 20;
+      display: none; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .ar-button:active { transform: scale(0.92); }
     .ar-button.visible { display: flex; }
-    .ar-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .ar-button svg { width: 28px; height: 28px; fill: none; stroke: white; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
     .loading-screen {
       position: fixed; inset: 0; background: #f5f5f7;
@@ -175,15 +188,18 @@
     }
     .ar-menu-row .value.is-one { color: #4ade80; font-weight: 600; }
 
+    .ar-menu-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 2px 8px; }
+
     .ar-menu-btn {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 14px; border-radius: 12px;
-      background: rgba(67,97,238,0.7); border: none; color: white;
-      font-size: 13px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      padding: 9px 14px; border-radius: 10px;
+      background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.85);
+      font-size: 13px; font-weight: 500; cursor: pointer;
       transition: background 0.15s;
     }
-    .ar-menu-btn:active { background: rgba(67,97,238,1); }
-    .ar-menu-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
+    .ar-menu-btn:active { background: rgba(255,255,255,0.18); }
+    .ar-menu-btn.active { background: rgba(67,97,238,0.7); color: white; font-weight: 600; }
+    .ar-scale-btn { font-variant-numeric: tabular-nums; }
   </style>
 
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
@@ -203,6 +219,10 @@
     <button class="retry-btn" id="retryBtn">Try again</button>
   </div>
 
+  <button class="back-btn" id="backBtn">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+
   <div class="info-bar" id="infoBar">
     <span class="model-name" id="modelName"></span>
     <span class="model-size" id="modelSize"></span>
@@ -211,8 +231,18 @@
   <div class="no-ar-notice" id="noArNotice"></div>
 
   <button class="ar-button" id="arBtn">
-    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-    View in AR
+    <svg viewBox="0 0 24 24">
+      <path d="M12 2l6 3.5v5L12 14 6 10.5v-5L12 2z"/>
+      <path d="M12 14v8"/>
+      <path d="M18 10.5l-6 3.5"/>
+      <path d="M6 10.5l6 3.5"/>
+      <path d="M12 2v4"/>
+      <path d="M18 5.5l-2.5-1.5"/>
+      <path d="M6 5.5l2.5-1.5"/>
+      <line x1="12" y1="22" x2="12" y2="24" stroke-width="1.2"/>
+      <line x1="21" y1="8" x2="23" y2="7" stroke-width="1.2"/>
+      <line x1="1" y1="7" x2="3" y2="8" stroke-width="1.2"/>
+    </svg>
   </button>
 
   <model-viewer
@@ -239,10 +269,11 @@
         <span class="label">Scale</span>
         <span class="value" id="arScaleText">—</span>
       </div>
-      <button class="ar-menu-btn" id="ar11Btn">
-        <svg viewBox="0 0 24 24"><path d="M21 3H3v18h18V3z"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
-        Snap to 1 : 1
-      </button>
+      <div class="ar-menu-divider"></div>
+      <button class="ar-menu-btn ar-scale-btn" data-scale="0.25">25%</button>
+      <button class="ar-menu-btn ar-scale-btn" data-scale="0.50">50%</button>
+      <button class="ar-menu-btn ar-scale-btn" data-scale="0.75">75%</button>
+      <button class="ar-menu-btn ar-scale-btn" data-scale="1.0" id="ar11Btn">1 : 1</button>
     </div>
   </div>
 
@@ -261,6 +292,7 @@
       var modelNameEl = document.getElementById('modelName');
       var modelSizeEl = document.getElementById('modelSize');
       var arBtn = document.getElementById('arBtn');
+      var backBtn = document.getElementById('backBtn');
       var noArNotice = document.getElementById('noArNotice');
 
       var pathParts = window.location.pathname.split('/').filter(Boolean);
@@ -277,6 +309,12 @@
       // Expose for the AR module
       window.__arModelUrl = glbUrl;
 
+      // Back button — navigate to model dashboard
+      backBtn.addEventListener('click', function () {
+        var dashUrl = basePath + '/';
+        window.location.href = dashUrl || '/';
+      });
+
       startLoading();
 
       retryBtn.addEventListener('click', function () {
@@ -291,6 +329,7 @@
         if (typeof window.startCustomAR === 'function') {
           arBtn.classList.remove('visible');
           infoBar.classList.remove('visible');
+          backBtn.classList.remove('visible');
           try {
             await window.startCustomAR(glbUrl);
           } catch (err) {
@@ -300,6 +339,7 @@
           }
           arBtn.classList.add('visible');
           infoBar.classList.add('visible');
+          backBtn.classList.add('visible');
         }
       });
 
@@ -352,6 +392,7 @@
           viewer.style.visibility = 'visible';
           viewer.style.position = 'static';
           infoBar.classList.add('visible');
+          backBtn.classList.add('visible');
 
           // Check if WebXR AR is available
           setTimeout(async function () {
@@ -410,7 +451,6 @@
     const menuToggle = document.getElementById('arMenuToggle');
     const menuPanel = document.getElementById('arMenuPanel');
     const scaleText = document.getElementById('arScaleText');
-    const btn11 = document.getElementById('ar11Btn');
     const viewerEl = document.getElementById('viewer');
 
     // Global cleanup — called on any exit path
@@ -572,7 +612,10 @@
           scaleText.textContent = pct.toFixed(1) + '%';
           scaleText.classList.remove('is-one');
         }
+        _highlightActiveScale();
       }
+
+      let _highlightActiveScale = () => {};
 
       try {
         const vSpace = await session.requestReferenceSpace('viewer');
@@ -606,21 +649,31 @@
         updateScaleUI();
       });
 
-      // 1:1 scale button
-      function do11(e) {
+      // Scale preset buttons (25%, 50%, 75%, 1:1)
+      const scaleBtns = document.querySelectorAll('.ar-scale-btn');
+
+      _highlightActiveScale = function() {
+        const effective = initialScale * modelGroup.scale.x;
+        scaleBtns.forEach(b => {
+          const target = parseFloat(b.dataset.scale);
+          b.classList.toggle('active', Math.abs(effective - target) < 0.005);
+        });
+      };
+
+      function setScale(e) {
         e.preventDefault(); e.stopPropagation();
         if (!placed) return;
-        const target = Math.min(1.0 / initialScale, maxScale);
-        modelGroup.scale.setScalar(target);
+        const targetRatio = parseFloat(e.currentTarget.dataset.scale);
+        const scaleVal = Math.min(targetRatio / initialScale, maxScale);
+        modelGroup.scale.setScalar(scaleVal);
         updateScaleUI();
-        if (target < 1.0 / initialScale) {
-          guideText.textContent = 'Max scale reached — model too large for 1:1';
+        if (scaleVal < targetRatio / initialScale) {
+          guideText.textContent = 'Max scale reached — model too large';
           guideText.classList.remove('fade-out');
           setTimeout(() => { guideText.classList.add('fade-out'); }, 3000);
         }
       }
-      btn11.ontouchend = do11;
-      btn11.onclick = do11;
+      scaleBtns.forEach(b => { b.ontouchend = setScale; b.onclick = setScale; });
 
       // Menu toggle
       function toggleMenu(e) {
