@@ -170,7 +170,8 @@
       transform: translateY(12px) scale(0.9); opacity: 0;
       pointer-events: none;
       transition: transform 0.25s ease, opacity 0.25s ease;
-      min-width: 160px;
+      min-width: 170px; max-height: 60vh; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .ar-menu-panel.open { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
 
@@ -200,6 +201,8 @@
     .ar-menu-btn:active { background: rgba(255,255,255,0.18); }
     .ar-menu-btn.active { background: rgba(67,97,238,0.7); color: white; font-weight: 600; }
     .ar-scale-btn { font-variant-numeric: tabular-nums; }
+    .ar-menu-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.4); padding: 4px 14px 0; }
+    .ar-scale-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
   </style>
 
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
@@ -270,10 +273,24 @@
         <span class="value" id="arScaleText">—</span>
       </div>
       <div class="ar-menu-divider"></div>
-      <button class="ar-menu-btn ar-scale-btn" data-scale="0.25">25%</button>
-      <button class="ar-menu-btn ar-scale-btn" data-scale="0.50">50%</button>
-      <button class="ar-menu-btn ar-scale-btn" data-scale="0.75">75%</button>
-      <button class="ar-menu-btn ar-scale-btn" data-scale="1.0" id="ar11Btn">100%</button>
+      <div class="ar-menu-label">Percentage</div>
+      <div class="ar-scale-grid">
+        <button class="ar-menu-btn ar-scale-btn" data-scale="0.25">25%</button>
+        <button class="ar-menu-btn ar-scale-btn" data-scale="0.50">50%</button>
+        <button class="ar-menu-btn ar-scale-btn" data-scale="0.75">75%</button>
+        <button class="ar-menu-btn ar-scale-btn" data-scale="1.0">100%</button>
+      </div>
+      <div class="ar-menu-divider"></div>
+      <div class="ar-menu-label">Architectural</div>
+      <div class="ar-scale-grid">
+        <button class="ar-menu-btn ar-scale-btn" data-scale="0.05">1:20</button>
+        <button class="ar-menu-btn ar-scale-btn" data-scale="0.02">1:50</button>
+        <button class="ar-menu-btn ar-scale-btn" data-scale="0.01">1:100</button>
+        <button class="ar-menu-btn ar-scale-btn" data-scale="0.005">1:200</button>
+        <button class="ar-menu-btn ar-scale-btn" data-scale="0.002">1:500</button>
+        <button class="ar-menu-btn ar-scale-btn" data-scale="0.001">1:1000</button>
+        <button class="ar-menu-btn ar-scale-btn" data-scale="0.0008">1:1250</button>
+      </div>
     </div>
   </div>
 
@@ -599,17 +616,26 @@
       let initialScale = 1;
       let maxScale = 20; // capped after model loads based on physical size
 
+      const archScales = [[0.05,'1:20'],[0.02,'1:50'],[0.01,'1:100'],[0.005,'1:200'],[0.002,'1:500'],[0.001,'1:1000'],[0.0008,'1:1250']];
+
       function updateScaleUI() {
         const effective = initialScale * modelGroup.scale.x;
         const pct = effective * 100;
-        if (pct >= 99.5 && pct <= 100.5) {
+        const archMatch = archScales.find(([v]) => Math.abs(effective - v) / v < 0.01);
+        if (archMatch) {
+          scaleText.textContent = archMatch[1];
+          scaleText.classList.remove('is-one');
+        } else if (pct >= 99.5 && pct <= 100.5) {
           scaleText.textContent = '100%';
           scaleText.classList.add('is-one');
         } else if (pct >= 10) {
           scaleText.textContent = Math.round(pct) + '%';
           scaleText.classList.remove('is-one');
-        } else {
+        } else if (pct >= 1) {
           scaleText.textContent = pct.toFixed(1) + '%';
+          scaleText.classList.remove('is-one');
+        } else {
+          scaleText.textContent = pct.toFixed(2) + '%';
           scaleText.classList.remove('is-one');
         }
         _highlightActiveScale();
