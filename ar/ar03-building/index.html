@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#f5f5f7">
+  <title>AR Viewer</title>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    model-viewer {
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      background-color: #f5f5f7;
+      --poster-color: #f5f5f7;
+      --progress-bar-color: #4361ee;
+      --progress-bar-height: 3px;
+    }
+    model-viewer::part(default-ar-button) { display: none; }
+
+    .ar-button {
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      background: #4361ee; border-radius: 16px; padding: 16px 36px;
+      font-size: 16px; font-weight: 600; color: white; border: none;
+      box-shadow: 0 4px 24px rgba(67,97,238,0.3); z-index: 20;
+      display: none; align-items: center; gap: 10px; cursor: pointer;
+    }
+    .ar-button:active { transform: translateX(-50%) scale(0.96); }
+    .ar-button.visible { display: flex; }
+    .ar-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+    .loading-screen {
+      position: fixed; inset: 0; background: #f5f5f7;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 100; transition: opacity 0.4s ease;
+    }
+    .loading-screen.hidden { opacity: 0; pointer-events: none; }
+
+    .spinner { width: 48px; height: 48px; border: 3px solid rgba(0,0,0,0.08); border-top-color: #4361ee; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-status { margin-top: 20px; font-size: 14px; color: rgba(0,0,0,0.45); text-align: center; }
+    .progress-bar { width: 180px; height: 3px; background: rgba(0,0,0,0.08); border-radius: 2px; margin-top: 16px; overflow: hidden; }
+    .progress-fill { height: 100%; width: 0%; background: #4361ee; border-radius: 2px; transition: width 0.3s ease; }
+
+    .info-bar {
+      position: fixed; top: 0; left: 0; right: 0; padding: 12px 16px;
+      padding-top: max(12px, env(safe-area-inset-top));
+      background: linear-gradient(to bottom, rgba(255,255,255,0.85), transparent);
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 10; opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
+    }
+    .info-bar.visible { opacity: 1; pointer-events: auto; }
+    .model-name { font-size: 15px; font-weight: 600; color: #1d1d1f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+    .model-size { font-size: 12px; color: rgba(0,0,0,0.45); }
+
+    .no-ar-notice {
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,255,255,0.9); backdrop-filter: blur(12px);
+      border-radius: 12px; padding: 14px 24px; font-size: 13px;
+      color: rgba(0,0,0,0.6); text-align: center; z-index: 20;
+      max-width: 90%; display: none; line-height: 1.4;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    .no-ar-notice.visible { display: block; }
+
+    .error-screen {
+      position: fixed; inset: 0; background: #f5f5f7; display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      padding: 32px; text-align: center; z-index: 100;
+    }
+    .error-screen.visible { display: flex; }
+    .error-icon { width: 56px; height: 56px; border-radius: 50%; background: rgba(239,68,68,0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 24px; }
+    .error-screen h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1d1d1f; }
+    .error-screen p { font-size: 14px; color: rgba(0,0,0,0.5); max-width: 300px; line-height: 1.5; }
+    .retry-btn { margin-top: 24px; background: #4361ee; color: #fff; border: none; border-radius: 10px; padding: 12px 28px; font-size: 15px; font-weight: 600; cursor: pointer; }
+
+    /* ── AR Overlay (dom-overlay root during WebXR) ── */
+    #arOverlay {
+      position: fixed; inset: 0; z-index: 200; display: none;
+      pointer-events: none;
+    }
+    #arOverlay.active { display: block; }
+
+    /* ── AR Top bar: close + guide ── */
+    .ar-top-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top));
+      display: flex; align-items: center; gap: 10px;
+      pointer-events: none; z-index: 210;
+    }
+    .ar-close-btn {
+      width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(0,0,0,0.55); backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(255,255,255,0.25);
+      color: white; font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; pointer-events: auto;
+    }
+    .ar-close-btn:active { background: rgba(0,0,0,0.75); }
+    .ar-guide-pill {
+      flex: 1; text-align: center;
+      background: rgba(0,0,0,0.55); backdrop-filter: blur(12px);
+      border-radius: 20px; padding: 10px 16px;
+      font-size: 13px; color: rgba(255,255,255,0.9);
+      transition: opacity 0.8s ease;
+    }
+    .ar-guide-pill.fade-out { opacity: 0; pointer-events: none; }
+
+    /* ── AR slide-out menu ── */
+    .ar-menu-toggle {
+      position: fixed; bottom: 24px; right: 16px;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      width: 48px; height: 48px; border-radius: 50%;
+      background: rgba(0,0,0,0.55); backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(255,255,255,0.25);
+      color: white; font-size: 22px; z-index: 215;
+      display: none; align-items: center; justify-content: center;
+      cursor: pointer; pointer-events: auto;
+      transition: transform 0.3s ease, background 0.2s;
+    }
+    .ar-menu-toggle.visible { display: flex; }
+    .ar-menu-toggle.open { transform: rotate(45deg); background: rgba(67,97,238,0.8); }
+    .ar-menu-toggle:active { background: rgba(0,0,0,0.75); }
+    .ar-menu-toggle svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+    .ar-menu-panel {
+      position: fixed; bottom: 82px; right: 16px;
+      bottom: calc(max(24px, env(safe-area-inset-bottom)) + 58px);
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(16px);
+      border-radius: 16px; padding: 8px;
+      pointer-events: auto; z-index: 214;
+      display: flex; flex-direction: column; gap: 4px;
+      transform: translateY(12px) scale(0.9); opacity: 0;
+      pointer-events: none;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      min-width: 160px;
+    }
+    .ar-menu-panel.open { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+
+    .ar-menu-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 12px;
+      background: rgba(255,255,255,0.06);
+      transition: background 0.15s;
+    }
+    .ar-menu-row:active { background: rgba(255,255,255,0.14); }
+    .ar-menu-row .label { font-size: 13px; color: rgba(255,255,255,0.85); flex: 1; }
+    .ar-menu-row .value {
+      font-size: 14px; color: rgba(255,255,255,0.9);
+      font-variant-numeric: tabular-nums; font-weight: 500; min-width: 40px; text-align: right;
+    }
+    .ar-menu-row .value.is-one { color: #4ade80; font-weight: 600; }
+
+    .ar-menu-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 12px;
+      background: rgba(67,97,238,0.7); border: none; color: white;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .ar-menu-btn:active { background: rgba(67,97,238,1); }
+    .ar-menu-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
+  </style>
+
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+</head>
+<body>
+
+  <div class="loading-screen" id="loading">
+    <div class="spinner"></div>
+    <p class="loading-status" id="loadingStatus">Connecting…</p>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="error-screen" id="error">
+    <div class="error-icon">!</div>
+    <h2 id="errorTitle">Could not load model</h2>
+    <p id="errorMessage">Check that your phone is on the same WiFi network as the host computer.</p>
+    <button class="retry-btn" id="retryBtn">Try again</button>
+  </div>
+
+  <div class="info-bar" id="infoBar">
+    <span class="model-name" id="modelName"></span>
+    <span class="model-size" id="modelSize"></span>
+  </div>
+
+  <div class="no-ar-notice" id="noArNotice"></div>
+
+  <button class="ar-button" id="arBtn">
+    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    View in AR
+  </button>
+
+  <model-viewer
+    id="viewer"
+    camera-controls touch-action="pan-y"
+    auto-rotate auto-rotate-delay="2000" rotation-per-second="24deg"
+    shadow-intensity="1" shadow-softness="0.8" exposure="1"
+    environment-image="neutral" interaction-prompt="auto"
+    bounds="tight"
+    style="visibility: hidden; position: absolute;"
+  ></model-viewer>
+
+  <!-- AR DOM overlay (shown during WebXR session) -->
+  <div id="arOverlay">
+    <div class="ar-top-bar">
+      <button class="ar-close-btn" id="arCloseBtn">&times;</button>
+      <span class="ar-guide-pill" id="arGuideText">Move your phone slowly to scan the floor</span>
+    </div>
+    <button class="ar-menu-toggle" id="arMenuToggle">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <div class="ar-menu-panel" id="arMenuPanel">
+      <div class="ar-menu-row">
+        <span class="label">Scale</span>
+        <span class="value" id="arScaleText">—</span>
+      </div>
+      <button class="ar-menu-btn" id="ar11Btn">
+        <svg viewBox="0 0 24 24"><path d="M21 3H3v18h18V3z"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+        Snap to 1 : 1
+      </button>
+    </div>
+  </div>
+
+  <!-- ── 3D Preview Logic ── -->
+  <script>
+    (function () {
+      var viewer = document.getElementById('viewer');
+      var loading = document.getElementById('loading');
+      var loadingStatus = document.getElementById('loadingStatus');
+      var progressFill = document.getElementById('progressFill');
+      var errorEl = document.getElementById('error');
+      var errorTitle = document.getElementById('errorTitle');
+      var errorMessage = document.getElementById('errorMessage');
+      var retryBtn = document.getElementById('retryBtn');
+      var infoBar = document.getElementById('infoBar');
+      var modelNameEl = document.getElementById('modelName');
+      var modelSizeEl = document.getElementById('modelSize');
+      var arBtn = document.getElementById('arBtn');
+      var noArNotice = document.getElementById('noArNotice');
+
+      var pathParts = window.location.pathname.split('/');
+      var modelId = decodeURIComponent(pathParts[pathParts.length - 1]);
+
+      if (!modelId) { showError('No model specified', 'The URL is missing a model name.'); return; }
+
+      var baseUrl = window.location.origin;
+      var glbUrl = baseUrl + '/models/' + encodeURIComponent(modelId) + '.glb';
+      var usdzUrl = baseUrl + '/models/' + encodeURIComponent(modelId) + '.usdz';
+
+      // Expose for the AR module
+      window.__arModelUrl = glbUrl;
+
+      startLoading();
+
+      retryBtn.addEventListener('click', function () {
+        errorEl.classList.remove('visible');
+        loading.classList.remove('hidden');
+        loading.style.display = '';
+        startLoading();
+      });
+
+      // AR button — start custom WebXR AR
+      arBtn.addEventListener('click', async function () {
+        if (typeof window.startCustomAR === 'function') {
+          arBtn.classList.remove('visible');
+          infoBar.classList.remove('visible');
+          try {
+            await window.startCustomAR(glbUrl);
+          } catch (err) {
+            noArNotice.textContent = 'AR failed: ' + (err.message || err);
+            noArNotice.classList.add('visible');
+            setTimeout(function () { noArNotice.classList.remove('visible'); }, 5000);
+          }
+          arBtn.classList.add('visible');
+          infoBar.classList.add('visible');
+        }
+      });
+
+      function startLoading() {
+        loadingStatus.textContent = 'Connecting…';
+        progressFill.style.width = '0%';
+        fetchModelInfo()
+          .then(function (info) {
+            progressFill.style.width = '40%';
+            loadingStatus.textContent = 'Loading 3D model…';
+            loadModel(info);
+          })
+          .catch(function (err) { showError(err.title || 'Load failed', err.message || err); });
+      }
+
+      function fetchModelInfo() {
+        return new Promise(function (resolve, reject) {
+          var xhr = new XMLHttpRequest();
+          xhr.open('GET', baseUrl + '/api/models/' + encodeURIComponent(modelId), true);
+          xhr.timeout = 5000;
+          xhr.onload = function () {
+            if (xhr.status === 200) resolve(JSON.parse(xhr.responseText));
+            else if (xhr.status === 404) reject({ title: 'Model not found', message: '"' + modelId + '" not on server.' });
+            else resolve({ hasGlb: true, hasUsdz: false });
+          };
+          xhr.onerror = function () { resolve({ hasGlb: true, hasUsdz: false }); };
+          xhr.ontimeout = function () { resolve({ hasGlb: true, hasUsdz: false }); };
+          xhr.send();
+        });
+      }
+
+      function loadModel(info) {
+        if (info.hasGlb) viewer.setAttribute('src', glbUrl);
+        if (info.hasUsdz) viewer.setAttribute('ios-src', usdzUrl);
+        viewer.setAttribute('alt', '3D model: ' + modelId);
+
+        var displayName = modelId.replace(/[-_]/g, ' ');
+        modelNameEl.textContent = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+        var sizeMB = info.glbSizeMB || info.usdzSizeMB;
+        modelSizeEl.textContent = sizeMB ? sizeMB + ' MB' : '';
+
+        viewer.addEventListener('progress', function (e) {
+          progressFill.style.width = (40 + e.detail.totalProgress * 60) + '%';
+          loadingStatus.textContent = 'Loading… ' + Math.round(e.detail.totalProgress * 100) + '%';
+        });
+
+        viewer.addEventListener('load', function onLoad() {
+          viewer.removeEventListener('load', onLoad);
+          loading.classList.add('hidden');
+          viewer.style.visibility = 'visible';
+          viewer.style.position = 'static';
+          infoBar.classList.add('visible');
+
+          // Check if WebXR AR is available
+          setTimeout(async function () {
+            var arAvailable = false;
+            if (navigator.xr) {
+              try { arAvailable = await navigator.xr.isSessionSupported('immersive-ar'); } catch (e) {}
+            }
+            if (arAvailable) {
+              arBtn.classList.add('visible');
+            } else {
+              noArNotice.textContent = 'AR requires HTTPS and an AR-capable device with Chrome.';
+              noArNotice.classList.add('visible');
+            }
+          }, 300);
+        });
+
+        viewer.addEventListener('error', function () {
+          showError('Failed to load model', 'The file may be corrupted or unsupported.');
+        });
+
+        setTimeout(function () {
+          if (!loading.classList.contains('hidden')) {
+            showError('Loading timed out', 'Model too large for this connection.');
+          }
+        }, 120000);
+      }
+
+      function showError(title, msg) {
+        loading.style.display = 'none';
+        arBtn.classList.remove('visible');
+        errorTitle.textContent = title;
+        errorMessage.textContent = msg;
+        errorEl.classList.add('visible');
+      }
+
+      var hideTimer;
+      viewer.addEventListener('camera-change', function () {
+        infoBar.classList.remove('visible');
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(function () {
+          if (viewer.style.visibility !== 'hidden') infoBar.classList.add('visible');
+        }, 2000);
+      });
+    })();
+  </script>
+
+  <!-- ── Custom WebXR AR with Three.js ── -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+    const overlay = document.getElementById('arOverlay');
+    const guideText = document.getElementById('arGuideText');
+    const closeBtn = document.getElementById('arCloseBtn');
+    const menuToggle = document.getElementById('arMenuToggle');
+    const menuPanel = document.getElementById('arMenuPanel');
+    const scaleText = document.getElementById('arScaleText');
+    const btn11 = document.getElementById('ar11Btn');
+    const viewerEl = document.getElementById('viewer');
+
+    // Global cleanup — called on any exit path
+    let cleanupFn = null;
+
+    window.startCustomAR = async function (modelUrl) {
+      overlay.classList.add('active');
+      guideText.textContent = 'Starting AR…';
+
+      let session;
+      try {
+        session = await navigator.xr.requestSession('immersive-ar', {
+          optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor', 'light-estimation'],
+          domOverlay: { root: overlay },
+        });
+      } catch (err) {
+        overlay.classList.remove('active');
+        throw new Error('XR session: ' + (err.message || err));
+      }
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.0;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      document.body.appendChild(renderer.domElement);
+
+      renderer.xr.setReferenceSpaceType('local-floor');
+      await renderer.xr.setSession(session);
+
+      viewerEl.style.display = 'none';
+
+      // ── Lighting: fallback lights + environment map ──
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.0);
+      scene.add(hemiLight);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+      dirLight.position.set(0.5, 1.5, 0.5);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.setScalar(512);
+      dirLight.shadow.camera.near = 0.1;
+      dirLight.shadow.camera.far = 10;
+      dirLight.shadow.camera.left = -2;
+      dirLight.shadow.camera.right = 2;
+      dirLight.shadow.camera.top = 2;
+      dirLight.shadow.camera.bottom = -2;
+      dirLight.shadow.bias = -0.001;
+      scene.add(dirLight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.VSMShadowMap;
+
+      // Neutral environment map for PBR reflections
+      const pmremGen = new THREE.PMREMGenerator(renderer);
+      pmremGen.compileEquirectangularShader();
+      const neutralEnv = pmremGen.fromScene(new THREE.Scene()).texture;
+      scene.environment = neutralEnv;
+
+      // Ground shadow plane (invisible except shadow)
+      const shadowPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(10, 10),
+        new THREE.ShadowMaterial({ opacity: 0.35 })
+      );
+      shadowPlane.rotation.x = -Math.PI / 2;
+      shadowPlane.receiveShadow = true;
+      shadowPlane.visible = false;
+      scene.add(shadowPlane);
+
+      // WebXR light estimation
+      let xrLightProbe = null;
+      try { xrLightProbe = await session.requestLightProbe(); } catch (e) {}
+
+      // Animated grid reticle
+      const reticleUniforms = { uTime: { value: 0 } };
+      const reticleMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        uniforms: reticleUniforms,
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }`,
+        fragmentShader: `
+          precision highp float;
+          varying vec2 vUv;
+          uniform float uTime;
+
+          void main() {
+            vec2 p = (vUv - 0.5) * 2.0;
+            float dist = length(p);
+
+            // Diamond grid: rotate 45deg, draw lines
+            vec2 r = vec2(p.x + p.y, p.x - p.y) * 0.7071;
+            float cellSize = 0.18;
+            vec2 g = abs(fract(r / cellSize + 0.5) - 0.5);
+            float line = min(g.x, g.y);
+            float gridLine = 1.0 - smoothstep(0.01, 0.025, line);
+
+            // Fade at edges
+            float edgeFade = 1.0 - smoothstep(0.55, 0.95, dist);
+
+            // Animated pulse ring expanding outward
+            float pulse = sin((dist - uTime * 0.3) * 18.0) * 0.5 + 0.5;
+            pulse *= smoothstep(0.05, 0.15, dist) * (1.0 - smoothstep(0.7, 1.0, dist));
+
+            // Center circle
+            float centerRing = smoothstep(0.09, 0.095, dist) - smoothstep(0.105, 0.11, dist);
+            // Center dot
+            float centerDot = 1.0 - smoothstep(0.02, 0.03, dist);
+            // Crosshair
+            float cross = 0.0;
+            float cDist = min(abs(p.x), abs(p.y));
+            cross = (1.0 - smoothstep(0.003, 0.008, cDist))
+                  * smoothstep(0.04, 0.06, dist)
+                  * (1.0 - smoothstep(0.13, 0.15, dist));
+
+            float grid = gridLine * edgeFade * (0.35 + pulse * 0.25);
+            float center = max(max(centerRing, centerDot), cross);
+
+            float alpha = max(grid, center * 0.9);
+            gl_FragColor = vec4(1.0, 1.0, 1.0, alpha * 0.8);
+          }`
+      });
+      const reticle = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.0, 1.0).rotateX(-Math.PI / 2),
+        reticleMat
+      );
+      reticle.matrixAutoUpdate = false;
+      reticle.visible = false;
+      scene.add(reticle);
+
+      // Model container
+      const modelGroup = new THREE.Group();
+      modelGroup.visible = false;
+      scene.add(modelGroup);
+
+      let placed = false;
+      let modelLoaded = false;
+      let hitTestSource = null;
+      let hitCount = 0;
+      let initialScale = 1; // scale applied at load to shrink model to 0.4m
+
+      function updateScaleUI() {
+        const effective = initialScale * modelGroup.scale.x;
+        const pct = effective * 100;
+        if (pct >= 99.5 && pct <= 100.5) {
+          scaleText.textContent = '1 : 1';
+          scaleText.classList.add('is-one');
+        } else if (pct >= 10) {
+          scaleText.textContent = Math.round(pct) + '%';
+          scaleText.classList.remove('is-one');
+        } else {
+          scaleText.textContent = pct.toFixed(1) + '%';
+          scaleText.classList.remove('is-one');
+        }
+      }
+
+      try {
+        const vSpace = await session.requestReferenceSpace('viewer');
+        hitTestSource = await session.requestHitTestSource({ space: vSpace });
+        guideText.textContent = 'Move phone slowly to find the floor';
+      } catch (e) {
+        guideText.textContent = 'Tap anywhere to place model';
+      }
+
+      session.addEventListener('select', function () {
+        if (!modelLoaded || placed) return;
+
+        if (reticle.visible) {
+          const pos = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
+          modelGroup.position.copy(pos);
+        } else {
+          const cam = renderer.xr.getCamera();
+          const fwd = new THREE.Vector3(0, 0, -2).applyQuaternion(cam.quaternion);
+          modelGroup.position.set(cam.position.x + fwd.x, cam.position.y - 1.3, cam.position.z + fwd.z);
+        }
+        modelGroup.visible = true;
+        placed = true;
+        reticle.visible = false;
+        shadowPlane.position.set(modelGroup.position.x, modelGroup.position.y, modelGroup.position.z);
+        shadowPlane.visible = true;
+        dirLight.target = modelGroup;
+        overlay.style.pointerEvents = 'auto';
+        guideText.textContent = 'Swipe to rotate · Pinch to resize · Two-finger drag to move';
+        setTimeout(() => { guideText.classList.add('fade-out'); }, 4000);
+        menuToggle.classList.add('visible');
+        updateScaleUI();
+      });
+
+      // 1:1 scale button
+      function do11(e) {
+        e.preventDefault(); e.stopPropagation();
+        if (!placed) return;
+        modelGroup.scale.setScalar(1.0 / initialScale);
+        updateScaleUI();
+      }
+      btn11.ontouchend = do11;
+      btn11.onclick = do11;
+
+      // Menu toggle
+      function toggleMenu(e) {
+        e.preventDefault(); e.stopPropagation();
+        menuToggle.classList.toggle('open');
+        menuPanel.classList.toggle('open');
+      }
+      menuToggle.ontouchend = toggleMenu;
+      menuToggle.onclick = toggleMenu;
+
+      // ── 5. Gestures (active after placement, when overlay captures touches) ──
+      let touches = {};
+      let pinchDist0 = 0, pinchScale0 = 1;
+      let lastX = 0, lastY = 0;
+      let twoLastMidX = 0, twoLastMidY = 0;
+
+      overlay.addEventListener('touchstart', e => {
+        // Don't interfere with close button
+        if (e.target.closest('.ar-close-btn, .ar-menu-toggle, .ar-menu-panel')) return;
+        for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
+        const k = Object.keys(touches);
+        if (k.length === 2 && placed) {
+          const a = touches[k[0]], b = touches[k[1]];
+          pinchDist0 = Math.hypot(b.x - a.x, b.y - a.y);
+          pinchScale0 = modelGroup.scale.x;
+          twoLastMidX = (a.x + b.x) / 2;
+          twoLastMidY = (a.y + b.y) / 2;
+        }
+        if (k.length === 1 && placed) {
+          lastX = touches[k[0]].x;
+          lastY = touches[k[0]].y;
+        }
+      }, { passive: true });
+
+      overlay.addEventListener('touchmove', e => {
+        if (e.target.closest('.ar-close-btn, .ar-menu-toggle, .ar-menu-panel')) return;
+        for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
+        const k = Object.keys(touches);
+
+        if (k.length === 2 && pinchDist0 > 0 && placed) {
+          const a = touches[k[0]], b = touches[k[1]];
+          // Pinch to scale
+          const d = Math.hypot(b.x - a.x, b.y - a.y);
+          modelGroup.scale.setScalar(Math.max(0.02, Math.min(20, pinchScale0 * d / pinchDist0)));
+          updateScaleUI();
+          // Two-finger drag to move along floor plane
+          const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
+          const dmx = midX - twoLastMidX, dmy = midY - twoLastMidY;
+          twoLastMidX = midX; twoLastMidY = midY;
+          const cam = renderer.xr.getCamera();
+          const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
+          right.y = 0; right.normalize();
+          const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+          forward.y = 0; forward.normalize();
+          const speed = 0.003;
+          modelGroup.position.x += right.x * dmx * speed - forward.x * dmy * speed;
+          modelGroup.position.z += right.z * dmx * speed - forward.z * dmy * speed;
+        } else if (k.length === 1 && placed) {
+          // Single-finger swipe to rotate
+          const dx = touches[k[0]].x - lastX;
+          lastX = touches[k[0]].x;
+          modelGroup.rotation.y += dx * 0.008;
+        }
+      }, { passive: true });
+
+      overlay.addEventListener('touchend', e => {
+        for (const t of e.changedTouches) delete touches[t.identifier];
+        if (Object.keys(touches).length < 2) pinchDist0 = 0;
+      }, { passive: true });
+
+      // ── 7. Close button ──
+      function doClose(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        try { session.end(); } catch (ex) { doCleanup(); }
+      }
+      closeBtn.ontouchstart = doClose;
+      closeBtn.onclick = doClose;
+
+      // ── 8. Cleanup ──
+      let cleaned = false;
+      function doCleanup() {
+        if (cleaned) return;
+        cleaned = true;
+        try { renderer.setAnimationLoop(null); } catch (e) {}
+        try { pmremGen.dispose(); neutralEnv.dispose(); } catch (e) {}
+        try { renderer.domElement.remove(); } catch (e) {}
+        try { renderer.dispose(); } catch (e) {}
+        scene.traverse(o => {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+        });
+        viewerEl.style.display = '';
+        overlay.classList.remove('active');
+        overlay.style.pointerEvents = '';
+        guideText.classList.remove('fade-out');
+        menuToggle.classList.remove('visible', 'open');
+        menuPanel.classList.remove('open');
+        closeBtn.ontouchstart = null;
+        closeBtn.onclick = null;
+        cleanupFn = null;
+      }
+      cleanupFn = doCleanup;
+
+      // ── 9. Render loop — START IMMEDIATELY so XR session stays alive ──
+      renderer.setAnimationLoop(function (ts, frame) {
+        if (!placed && frame && hitTestSource) {
+          const ref = renderer.xr.getReferenceSpace();
+          const results = frame.getHitTestResults(hitTestSource);
+          if (results.length > 0) {
+            const pose = results[0].getPose(ref);
+            if (pose) {
+              reticle.visible = true;
+              reticle.matrix.fromArray(pose.transform.matrix);
+              reticleUniforms.uTime.value = ts * 0.001;
+              hitCount++;
+              if (modelLoaded && hitCount === 1) guideText.textContent = 'Tap to place model here';
+            }
+          } else {
+            reticle.visible = false;
+          }
+        }
+        // Light estimation: match virtual light to real environment
+        if (xrLightProbe && frame) {
+          const estimate = frame.getLightEstimate(xrLightProbe);
+          if (estimate) {
+            const i = Math.max(
+              estimate.primaryLightIntensity.x,
+              estimate.primaryLightIntensity.y,
+              estimate.primaryLightIntensity.z
+            );
+            dirLight.intensity = Math.min(i, 3.0);
+            dirLight.color.setRGB(
+              estimate.primaryLightIntensity.x / (i || 1),
+              estimate.primaryLightIntensity.y / (i || 1),
+              estimate.primaryLightIntensity.z / (i || 1)
+            );
+            const dir = estimate.primaryLightDirection;
+            if (dir) dirLight.position.set(dir.x, dir.y, dir.z);
+            const sh = estimate.sphericalHarmonicsCoefficients;
+            if (sh && sh.length >= 9) {
+              hemiLight.intensity = Math.min(Math.sqrt(sh[0]*sh[0] + sh[1]*sh[1] + sh[2]*sh[2]), 2.0);
+            }
+          }
+        }
+        renderer.render(scene, camera);
+      });
+
+      fetch(modelUrl).then(resp => {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.arrayBuffer();
+      }).then(buffer => {
+        const gltfLoader = new GLTFLoader();
+        return new Promise((resolve, reject) => {
+          gltfLoader.parse(buffer, '', resolve, reject);
+        });
+      }).then(gltf => {
+        const model = gltf.scene;
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 0.4 / maxDim;
+        initialScale = scale;
+        model.scale.setScalar(scale);
+        model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+        model.traverse(child => { if (child.isMesh) child.castShadow = true; });
+        modelGroup.add(model);
+        modelLoaded = true;
+        guideText.textContent = reticle.visible ? 'Tap to place model here' : 'Point at floor, tap to place';
+      }).catch(() => {
+        guideText.textContent = 'Model failed — tap X to exit';
+      });
+
+      return new Promise(resolve => {
+        session.addEventListener('end', () => { doCleanup(); resolve(); });
+      });
+    };
+
+    // Safety net: clean up if page navigates or visibility changes
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && cleanupFn) cleanupFn();
+    });
+  </script>
+</body>
+</html>
