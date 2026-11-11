@@ -296,10 +296,10 @@
       <div class="ar-menu-section">
         <span class="section-label">Scale</span>
         <div class="ar-scale-row" style="width:100%;">
-          <button class="ar-menu-btn ar-scale-btn" data-scale="0.25">25%</button>
-          <button class="ar-menu-btn ar-scale-btn" data-scale="0.50">50%</button>
-          <button class="ar-menu-btn ar-scale-btn" data-scale="0.75">75%</button>
-          <button class="ar-menu-btn ar-scale-btn" data-scale="1.0">100%</button>
+          <button class="ar-menu-btn ar-scale-btn" data-pct="0.25">25%</button>
+          <button class="ar-menu-btn ar-scale-btn" data-pct="0.50">50%</button>
+          <button class="ar-menu-btn ar-scale-btn" data-pct="0.75">75%</button>
+          <button class="ar-menu-btn ar-scale-btn" data-pct="1.0">100%</button>
         </div>
       </div>
       <!-- Architectural row -->
@@ -682,24 +682,20 @@
       const archScales = [[0.05,'1:20'],[0.02,'1:50'],[0.01,'1:100'],[0.005,'1:200'],[0.002,'1:500'],[0.001,'1:1000'],[0.0008,'1:1250']];
 
       function updateScaleUI() {
-        const effective = initialScale * modelGroup.scale.x;
-        const pct = effective * 100;
-        const archMatch = archScales.find(([v]) => Math.abs(effective - v) / v < 0.01);
+        const groupScale = modelGroup.scale.x;
+        const effective = initialScale * groupScale;
+        const pctFitted = groupScale * 100;
+        const archMatch = archScales.find(([v]) => v > 0 && Math.abs(effective - v) / v < 0.01);
         if (archMatch) {
           scaleText.textContent = archMatch[1];
-          scaleText.classList.remove('is-one');
-        } else if (pct >= 99.5 && pct <= 100.5) {
+        } else if (pctFitted >= 99.5 && pctFitted <= 100.5) {
           scaleText.textContent = '100%';
-          scaleText.classList.add('is-one');
-        } else if (pct >= 10) {
-          scaleText.textContent = Math.round(pct) + '%';
-          scaleText.classList.remove('is-one');
-        } else if (pct >= 1) {
-          scaleText.textContent = pct.toFixed(1) + '%';
-          scaleText.classList.remove('is-one');
+        } else if (pctFitted >= 10) {
+          scaleText.textContent = Math.round(pctFitted) + '%';
+        } else if (pctFitted >= 1) {
+          scaleText.textContent = pctFitted.toFixed(1) + '%';
         } else {
-          scaleText.textContent = pct.toFixed(2) + '%';
-          scaleText.classList.remove('is-one');
+          scaleText.textContent = pctFitted.toFixed(2) + '%';
         }
         _highlightActiveScale();
         if (scalePanelText) scalePanelText.textContent = scaleText.textContent;
@@ -743,21 +739,34 @@
       const scaleBtns = document.querySelectorAll('.ar-scale-btn');
 
       _highlightActiveScale = function() {
-        const effective = initialScale * modelGroup.scale.x;
+        const groupScale = modelGroup.scale.x;
+        const effective = initialScale * groupScale;
         scaleBtns.forEach(b => {
-          const target = parseFloat(b.dataset.scale);
-          b.classList.toggle('active', target > 0 && Math.abs(effective - target) / target < 0.02);
+          if (b.dataset.pct) {
+            const target = parseFloat(b.dataset.pct);
+            b.classList.toggle('active', target > 0 && Math.abs(groupScale - target) / target < 0.02);
+          } else {
+            const target = parseFloat(b.dataset.scale);
+            b.classList.toggle('active', target > 0 && Math.abs(effective - target) / target < 0.02);
+          }
         });
       };
 
       function setScale(e) {
         e.preventDefault(); e.stopPropagation();
         if (!placed) return;
-        const targetRatio = parseFloat(e.currentTarget.dataset.scale);
-        const scaleVal = Math.min(targetRatio / initialScale, maxScale);
+        const btn = e.currentTarget;
+        let scaleVal;
+        if (btn.dataset.pct) {
+          scaleVal = Math.min(parseFloat(btn.dataset.pct), maxScale);
+        } else {
+          const targetRatio = parseFloat(btn.dataset.scale);
+          scaleVal = Math.min(targetRatio / initialScale, maxScale);
+        }
         modelGroup.scale.setScalar(scaleVal);
         updateScaleUI();
-        if (scaleVal < targetRatio / initialScale) {
+        const desired = btn.dataset.pct ? parseFloat(btn.dataset.pct) : parseFloat(btn.dataset.scale) / initialScale;
+        if (scaleVal < desired) {
           guideText.textContent = 'Max scale reached — model too large';
           guideText.classList.remove('fade-out');
           setTimeout(() => { guideText.classList.add('fade-out'); }, 3000);
@@ -996,6 +1005,7 @@
         });
       }).then(gltf => {
         const model = gltf.scene;
+        model.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
@@ -1009,6 +1019,7 @@
           (-box.min.y) * scale,
           -center.z * scale
         );
+        console.log('AR model bounds:', {min: box.min.toArray(), max: box.max.toArray(), center: center.toArray(), maxDim, scale});
         let totalVerts = 0;
         model.traverse(child => {
           if (child.isMesh && child.geometry) {
