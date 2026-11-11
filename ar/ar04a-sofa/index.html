@@ -273,7 +273,7 @@
       <button class="ar-menu-btn ar-scale-btn" data-scale="0.25">25%</button>
       <button class="ar-menu-btn ar-scale-btn" data-scale="0.50">50%</button>
       <button class="ar-menu-btn ar-scale-btn" data-scale="0.75">75%</button>
-      <button class="ar-menu-btn ar-scale-btn" data-scale="1.0" id="ar11Btn">1 : 1</button>
+      <button class="ar-menu-btn ar-scale-btn" data-scale="1.0" id="ar11Btn">100%</button>
     </div>
   </div>
 
@@ -603,7 +603,7 @@
         const effective = initialScale * modelGroup.scale.x;
         const pct = effective * 100;
         if (pct >= 99.5 && pct <= 100.5) {
-          scaleText.textContent = '1 : 1';
+          scaleText.textContent = '100%';
           scaleText.classList.add('is-one');
         } else if (pct >= 10) {
           scaleText.textContent = Math.round(pct) + '%';
