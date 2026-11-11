@@ -211,6 +211,10 @@
     }
     .ar-light-rotate button:active { background: rgba(255,255,255,0.18); }
     .ar-light-rotate .angle { flex: 1; text-align: center; font-size: 13px; color: rgba(255,255,255,0.7); font-variant-numeric: tabular-nums; }
+    .ar-slider-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; }
+    .ar-slider-row label { font-size: 11px; color: rgba(255,255,255,0.5); min-width: 52px; }
+    .ar-slider-row input[type=range] { flex: 1; height: 4px; accent-color: #4361ee; }
+    .ar-slider-row .val { font-size: 12px; color: rgba(255,255,255,0.7); min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
   </style>
 
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
@@ -306,10 +310,17 @@
         <button class="ar-menu-btn ar-light-mode active" data-mode="auto" id="lightAutoBtn">Auto</button>
         <button class="ar-menu-btn ar-light-mode" data-mode="studio" id="lightStudioBtn">Studio</button>
       </div>
-      <div class="ar-light-rotate" id="lightRotateRow" style="display:none;">
-        <button id="lightRotL">&#x25C0;</button>
-        <span class="angle" id="lightAngleText">0°</span>
-        <button id="lightRotR">&#x25B6;</button>
+      <div id="lightStudioControls" style="display:none;">
+        <div class="ar-light-rotate">
+          <button id="lightRotL">&#x25C0;</button>
+          <span class="angle" id="lightAngleText">0°</span>
+          <button id="lightRotR">&#x25B6;</button>
+        </div>
+        <div class="ar-slider-row">
+          <label>Intensity</label>
+          <input type="range" id="lightIntensity" min="0" max="300" value="120" step="5">
+          <span class="val" id="lightIntVal">1.2</span>
+        </div>
       </div>
     </div>
   </div>
@@ -490,10 +501,12 @@
     const scaleText = document.getElementById('arScaleText');
     const lightAutoBtn = document.getElementById('lightAutoBtn');
     const lightStudioBtn = document.getElementById('lightStudioBtn');
-    const lightRotateRow = document.getElementById('lightRotateRow');
+    const lightStudioControls = document.getElementById('lightStudioControls');
     const lightRotL = document.getElementById('lightRotL');
     const lightRotR = document.getElementById('lightRotR');
     const lightAngleText = document.getElementById('lightAngleText');
+    const lightIntensitySlider = document.getElementById('lightIntensity');
+    const lightIntVal = document.getElementById('lightIntVal');
     const viewerEl = document.getElementById('viewer');
 
     // Global cleanup — called on any exit path
@@ -753,6 +766,8 @@
       const LIGHT_RADIUS = 1.5;
       const LIGHT_HEIGHT = 1.5;
 
+      let studioIntensity = 1.2;
+
       function applyStudioLight() {
         const rad = lightAngle * Math.PI / 180;
         dirLight.position.set(
@@ -760,9 +775,9 @@
           LIGHT_HEIGHT,
           Math.cos(rad) * LIGHT_RADIUS
         );
-        dirLight.intensity = 1.2;
+        dirLight.intensity = studioIntensity;
         dirLight.color.setHex(0xffffff);
-        hemiLight.intensity = 0.8;
+        hemiLight.intensity = Math.min(studioIntensity * 0.67, 1.5);
       }
 
       function setLightMode(mode, e) {
@@ -770,7 +785,7 @@
         lightMode = mode;
         lightAutoBtn.classList.toggle('active', mode === 'auto');
         lightStudioBtn.classList.toggle('active', mode === 'studio');
-        lightRotateRow.style.display = mode === 'studio' ? 'flex' : 'none';
+        lightStudioControls.style.display = mode === 'studio' ? 'block' : 'none';
         if (mode === 'studio') applyStudioLight();
       }
 
@@ -785,10 +800,16 @@
       lightAutoBtn.onclick = e => setLightMode('auto', e);
       lightStudioBtn.ontouchend = e => setLightMode('studio', e);
       lightStudioBtn.onclick = e => setLightMode('studio', e);
-      lightRotL.ontouchend = e => rotateLightBy(-45, e);
-      lightRotL.onclick = e => rotateLightBy(-45, e);
-      lightRotR.ontouchend = e => rotateLightBy(45, e);
-      lightRotR.onclick = e => rotateLightBy(45, e);
+      lightRotL.ontouchend = e => rotateLightBy(-5, e);
+      lightRotL.onclick = e => rotateLightBy(-5, e);
+      lightRotR.ontouchend = e => rotateLightBy(5, e);
+      lightRotR.onclick = e => rotateLightBy(5, e);
+
+      lightIntensitySlider.addEventListener('input', function() {
+        studioIntensity = parseFloat(this.value) / 100;
+        lightIntVal.textContent = studioIntensity.toFixed(1);
+        if (lightMode === 'studio') applyStudioLight();
+      });
 
       // ── 5. Gestures (active after placement, when overlay captures touches) ──
       let touches = {};
@@ -946,11 +967,22 @@
         maxScale = Math.max(1, 3.0 / (maxDim * scale));
         model.scale.setScalar(scale);
         model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
-        model.traverse(child => { if (child.isMesh) child.castShadow = true; });
+        let totalVerts = 0;
+        model.traverse(child => {
+          if (child.isMesh && child.geometry) {
+            const pos = child.geometry.getAttribute('position');
+            if (pos) totalVerts += pos.count;
+          }
+        });
+        const enableShadows = totalVerts < 500000;
+        if (enableShadows) {
+          model.traverse(child => { if (child.isMesh) child.castShadow = true; });
+        }
         modelGroup.add(model);
         modelLoaded = true;
         guideText.textContent = reticle.visible ? 'Tap to place model here' : 'Point at floor, tap to place';
-      }).catch(() => {
+      }).catch(err => {
+        console.error('AR model load failed:', err);
         guideText.textContent = 'Model failed — tap X to exit';
       });
 
