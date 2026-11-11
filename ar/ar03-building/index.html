@@ -203,6 +203,14 @@
     .ar-scale-btn { font-variant-numeric: tabular-nums; }
     .ar-menu-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.4); padding: 4px 14px 0; }
     .ar-scale-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .ar-light-rotate { display: flex; align-items: center; gap: 4px; }
+    .ar-light-rotate button {
+      width: 36px; height: 36px; border-radius: 8px; border: none;
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85);
+      font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .ar-light-rotate button:active { background: rgba(255,255,255,0.18); }
+    .ar-light-rotate .angle { flex: 1; text-align: center; font-size: 13px; color: rgba(255,255,255,0.7); font-variant-numeric: tabular-nums; }
   </style>
 
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
@@ -290,6 +298,17 @@
         <button class="ar-menu-btn ar-scale-btn" data-scale="0.002">1:500</button>
         <button class="ar-menu-btn ar-scale-btn" data-scale="0.001">1:1000</button>
         <button class="ar-menu-btn ar-scale-btn" data-scale="0.0008">1:1250</button>
+      </div>
+      <div class="ar-menu-divider"></div>
+      <div class="ar-menu-label">Lighting</div>
+      <div class="ar-scale-grid">
+        <button class="ar-menu-btn ar-light-mode active" data-mode="auto" id="lightAutoBtn">Auto</button>
+        <button class="ar-menu-btn ar-light-mode" data-mode="studio" id="lightStudioBtn">Studio</button>
+      </div>
+      <div class="ar-light-rotate" id="lightRotateRow" style="display:none;">
+        <button id="lightRotL">&#x25C0;</button>
+        <span class="angle" id="lightAngleText">0°</span>
+        <button id="lightRotR">&#x25B6;</button>
       </div>
     </div>
   </div>
@@ -468,6 +487,12 @@
     const menuToggle = document.getElementById('arMenuToggle');
     const menuPanel = document.getElementById('arMenuPanel');
     const scaleText = document.getElementById('arScaleText');
+    const lightAutoBtn = document.getElementById('lightAutoBtn');
+    const lightStudioBtn = document.getElementById('lightStudioBtn');
+    const lightRotateRow = document.getElementById('lightRotateRow');
+    const lightRotL = document.getElementById('lightRotL');
+    const lightRotR = document.getElementById('lightRotR');
+    const lightAngleText = document.getElementById('lightAngleText');
     const viewerEl = document.getElementById('viewer');
 
     // Global cleanup — called on any exit path
@@ -710,6 +735,49 @@
       menuToggle.ontouchend = toggleMenu;
       menuToggle.onclick = toggleMenu;
 
+      // ── Lighting controls ──
+      let lightMode = 'auto'; // 'auto' or 'studio'
+      let lightAngle = 0;     // degrees, 0 = front
+      const LIGHT_RADIUS = 1.5;
+      const LIGHT_HEIGHT = 1.5;
+
+      function applyStudioLight() {
+        const rad = lightAngle * Math.PI / 180;
+        dirLight.position.set(
+          Math.sin(rad) * LIGHT_RADIUS,
+          LIGHT_HEIGHT,
+          Math.cos(rad) * LIGHT_RADIUS
+        );
+        dirLight.intensity = 1.2;
+        dirLight.color.setHex(0xffffff);
+        hemiLight.intensity = 0.8;
+      }
+
+      function setLightMode(mode, e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        lightMode = mode;
+        lightAutoBtn.classList.toggle('active', mode === 'auto');
+        lightStudioBtn.classList.toggle('active', mode === 'studio');
+        lightRotateRow.style.display = mode === 'studio' ? 'flex' : 'none';
+        if (mode === 'studio') applyStudioLight();
+      }
+
+      function rotateLightBy(deg, e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        lightAngle = (lightAngle + deg + 360) % 360;
+        lightAngleText.textContent = lightAngle + '°';
+        if (lightMode === 'studio') applyStudioLight();
+      }
+
+      lightAutoBtn.ontouchend = e => setLightMode('auto', e);
+      lightAutoBtn.onclick = e => setLightMode('auto', e);
+      lightStudioBtn.ontouchend = e => setLightMode('studio', e);
+      lightStudioBtn.onclick = e => setLightMode('studio', e);
+      lightRotL.ontouchend = e => rotateLightBy(-45, e);
+      lightRotL.onclick = e => rotateLightBy(-45, e);
+      lightRotR.ontouchend = e => rotateLightBy(45, e);
+      lightRotR.onclick = e => rotateLightBy(45, e);
+
       // ── 5. Gestures (active after placement, when overlay captures touches) ──
       let touches = {};
       let pinchDist0 = 0, pinchScale0 = 1;
@@ -821,8 +889,8 @@
             reticle.visible = false;
           }
         }
-        // Light estimation: match virtual light to real environment
-        if (xrLightProbe && frame) {
+        // Light estimation: match virtual light to real environment (skipped in studio mode)
+        if (lightMode === 'auto' && xrLightProbe && frame) {
           const estimate = frame.getLightEstimate(xrLightProbe);
           if (estimate) {
             const i = Math.max(
