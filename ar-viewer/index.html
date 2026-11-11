@@ -176,7 +176,12 @@
     }
     .ar-menu-panel.open { transform: translateY(0); opacity: 1; pointer-events: auto; }
 
-    .ar-menu-handle { width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.3); margin: 0 auto 2px; cursor: pointer; padding: 8px 40px; background-clip: content-box; }
+    .ar-menu-close-bar {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 6px 0 4px; cursor: pointer; color: rgba(255,255,255,0.6);
+    }
+    .ar-menu-close-bar .close-scale { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85); font-variant-numeric: tabular-nums; }
+    .ar-menu-close-bar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; opacity: 0.5; }
 
     .ar-menu-section { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .ar-menu-section .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(255,255,255,0.35); width: 100%; padding-left: 2px; }
@@ -279,7 +284,10 @@
       <svg viewBox="0 0 24 24" style="width:14px;height:14px;"><polyline points="6 9 12 15 18 9"/></svg>
     </button>
     <div class="ar-menu-panel" id="arMenuPanel">
-      <div class="ar-menu-handle"></div>
+      <div class="ar-menu-close-bar" id="arMenuClose">
+        <span class="close-scale" id="arScaleTextPanel">—</span>
+        <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
       <!-- Scale header + reset -->
       <div class="ar-menu-section" style="justify-content:space-between;">
         <button class="ar-btn-reset" id="arResetBtn">Reset</button>
@@ -685,6 +693,7 @@
           scaleText.classList.remove('is-one');
         }
         _highlightActiveScale();
+        if (scalePanelText) scalePanelText.textContent = scaleText.textContent;
       }
 
       let _highlightActiveScale = () => {};
@@ -767,11 +776,12 @@
       menuToggle.ontouchend = toggleMenu;
       menuToggle.onclick = toggleMenu;
 
-      // Handle tap closes menu
-      const menuHandle = document.querySelector('.ar-menu-handle');
+      // Close bar tap closes menu
+      const menuCloseBar = document.getElementById('arMenuClose');
+      const scalePanelText = document.getElementById('arScaleTextPanel');
       function closeMenu(e) { e.preventDefault(); e.stopPropagation(); menuToggle.classList.remove('open'); menuPanel.classList.remove('open'); }
-      menuHandle.ontouchend = closeMenu;
-      menuHandle.onclick = closeMenu;
+      menuCloseBar.ontouchend = closeMenu;
+      menuCloseBar.onclick = closeMenu;
 
       // ── Lighting controls ──
       let lightMode = 'auto'; // 'auto' or 'studio'
@@ -815,10 +825,10 @@
       lightAutoBtn.onclick = e => setLightMode('auto', e);
       lightStudioBtn.ontouchend = e => setLightMode('studio', e);
       lightStudioBtn.onclick = e => setLightMode('studio', e);
-      lightRotL.ontouchend = e => rotateLightBy(-5, e);
-      lightRotL.onclick = e => rotateLightBy(-5, e);
-      lightRotR.ontouchend = e => rotateLightBy(5, e);
-      lightRotR.onclick = e => rotateLightBy(5, e);
+      lightRotL.ontouchend = e => rotateLightBy(-10, e);
+      lightRotL.onclick = e => rotateLightBy(-10, e);
+      lightRotR.ontouchend = e => rotateLightBy(10, e);
+      lightRotR.onclick = e => rotateLightBy(10, e);
 
       lightIntensitySlider.addEventListener('input', function() {
         studioIntensity = parseFloat(this.value) / 100;
