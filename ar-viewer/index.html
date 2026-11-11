@@ -129,37 +129,60 @@
     }
     .ar-guide-pill.fade-out { opacity: 0; pointer-events: none; }
 
-    /* ── AR Bottom toolbar ── */
-    .ar-toolbar {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom));
-      display: none; justify-content: center;
-      pointer-events: none; z-index: 210;
-    }
-    .ar-toolbar.visible { display: flex; }
-    .ar-toolbar-inner {
-      display: flex; align-items: center; gap: 2px;
+    /* ── AR slide-out menu ── */
+    .ar-menu-toggle {
+      position: fixed; bottom: 24px; right: 16px;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      width: 48px; height: 48px; border-radius: 50%;
       background: rgba(0,0,0,0.55); backdrop-filter: blur(12px);
-      border-radius: 16px; padding: 5px;
-      pointer-events: auto;
+      border: 1.5px solid rgba(255,255,255,0.25);
+      color: white; font-size: 22px; z-index: 215;
+      display: none; align-items: center; justify-content: center;
+      cursor: pointer; pointer-events: auto;
+      transition: transform 0.3s ease, background 0.2s;
     }
-    .ar-scale-pill {
-      padding: 8px 14px; font-size: 14px; min-width: 64px;
-      color: rgba(255,255,255,0.85); font-variant-numeric: tabular-nums;
-      text-align: center; font-weight: 500;
+    .ar-menu-toggle.visible { display: flex; }
+    .ar-menu-toggle.open { transform: rotate(45deg); background: rgba(67,97,238,0.8); }
+    .ar-menu-toggle:active { background: rgba(0,0,0,0.75); }
+    .ar-menu-toggle svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+    .ar-menu-panel {
+      position: fixed; bottom: 82px; right: 16px;
+      bottom: calc(max(24px, env(safe-area-inset-bottom)) + 58px);
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(16px);
+      border-radius: 16px; padding: 8px;
+      pointer-events: auto; z-index: 214;
+      display: flex; flex-direction: column; gap: 4px;
+      transform: translateY(12px) scale(0.9); opacity: 0;
+      pointer-events: none;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      min-width: 160px;
     }
-    .ar-scale-pill.is-one { color: #4ade80; font-weight: 600; }
-    .ar-tool-btn {
-      background: rgba(255,255,255,0.12); border: none; border-radius: 12px;
-      padding: 8px 14px; font-size: 13px; font-weight: 600; color: white;
-      cursor: pointer; pointer-events: auto; white-space: nowrap;
-      min-width: 44px; min-height: 36px;
-      display: flex; align-items: center; justify-content: center;
+    .ar-menu-panel.open { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+
+    .ar-menu-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 12px;
+      background: rgba(255,255,255,0.06);
       transition: background 0.15s;
     }
-    .ar-tool-btn:active { background: rgba(255,255,255,0.22); }
-    .ar-tool-btn.primary { background: rgba(67,97,238,0.8); }
-    .ar-tool-btn.primary:active { background: rgba(67,97,238,1); }
+    .ar-menu-row:active { background: rgba(255,255,255,0.14); }
+    .ar-menu-row .label { font-size: 13px; color: rgba(255,255,255,0.85); flex: 1; }
+    .ar-menu-row .value {
+      font-size: 14px; color: rgba(255,255,255,0.9);
+      font-variant-numeric: tabular-nums; font-weight: 500; min-width: 40px; text-align: right;
+    }
+    .ar-menu-row .value.is-one { color: #4ade80; font-weight: 600; }
+
+    .ar-menu-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 12px;
+      background: rgba(67,97,238,0.7); border: none; color: white;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .ar-menu-btn:active { background: rgba(67,97,238,1); }
+    .ar-menu-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
   </style>
 
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
@@ -206,11 +229,18 @@
       <button class="ar-close-btn" id="arCloseBtn">&times;</button>
       <span class="ar-guide-pill" id="arGuideText">Move your phone slowly to scan the floor</span>
     </div>
-    <div class="ar-toolbar" id="arToolbar">
-      <div class="ar-toolbar-inner">
-        <span class="ar-scale-pill" id="arScaleText">—</span>
-        <button class="ar-tool-btn primary" id="ar11Btn">1 : 1</button>
+    <button class="ar-menu-toggle" id="arMenuToggle">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <div class="ar-menu-panel" id="arMenuPanel">
+      <div class="ar-menu-row">
+        <span class="label">Scale</span>
+        <span class="value" id="arScaleText">—</span>
       </div>
+      <button class="ar-menu-btn" id="ar11Btn">
+        <svg viewBox="0 0 24 24"><path d="M21 3H3v18h18V3z"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>
+        Snap to 1 : 1
+      </button>
     </div>
   </div>
 
@@ -389,7 +419,8 @@
     const overlay = document.getElementById('arOverlay');
     const guideText = document.getElementById('arGuideText');
     const closeBtn = document.getElementById('arCloseBtn');
-    const toolbar = document.getElementById('arToolbar');
+    const menuToggle = document.getElementById('arMenuToggle');
+    const menuPanel = document.getElementById('arMenuPanel');
     const scaleText = document.getElementById('arScaleText');
     const btn11 = document.getElementById('ar11Btn');
     const viewerEl = document.getElementById('viewer');
@@ -466,10 +497,63 @@
       let xrLightProbe = null;
       try { xrLightProbe = await session.requestLightProbe(); } catch (e) {}
 
-      // Reticle
+      // Animated grid reticle
+      const reticleUniforms = { uTime: { value: 0 } };
+      const reticleMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        uniforms: reticleUniforms,
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }`,
+        fragmentShader: `
+          precision highp float;
+          varying vec2 vUv;
+          uniform float uTime;
+
+          void main() {
+            vec2 p = (vUv - 0.5) * 2.0;
+            float dist = length(p);
+
+            // Diamond grid: rotate 45deg, draw lines
+            vec2 r = vec2(p.x + p.y, p.x - p.y) * 0.7071;
+            float cellSize = 0.18;
+            vec2 g = abs(fract(r / cellSize + 0.5) - 0.5);
+            float line = min(g.x, g.y);
+            float gridLine = 1.0 - smoothstep(0.01, 0.025, line);
+
+            // Fade at edges
+            float edgeFade = 1.0 - smoothstep(0.55, 0.95, dist);
+
+            // Animated pulse ring expanding outward
+            float pulse = sin((dist - uTime * 0.3) * 18.0) * 0.5 + 0.5;
+            pulse *= smoothstep(0.05, 0.15, dist) * (1.0 - smoothstep(0.7, 1.0, dist));
+
+            // Center circle
+            float centerRing = smoothstep(0.09, 0.095, dist) - smoothstep(0.105, 0.11, dist);
+            // Center dot
+            float centerDot = 1.0 - smoothstep(0.02, 0.03, dist);
+            // Crosshair
+            float cross = 0.0;
+            float cDist = min(abs(p.x), abs(p.y));
+            cross = (1.0 - smoothstep(0.003, 0.008, cDist))
+                  * smoothstep(0.04, 0.06, dist)
+                  * (1.0 - smoothstep(0.13, 0.15, dist));
+
+            float grid = gridLine * edgeFade * (0.35 + pulse * 0.25);
+            float center = max(max(centerRing, centerDot), cross);
+
+            float alpha = max(grid, center * 0.9);
+            gl_FragColor = vec4(1.0, 1.0, 1.0, alpha * 0.8);
+          }`
+      });
       const reticle = new THREE.Mesh(
-        new THREE.RingGeometry(0.08, 0.11, 32).rotateX(-Math.PI / 2),
-        new THREE.MeshBasicMaterial({ color: 0x4361ee, side: THREE.DoubleSide })
+        new THREE.PlaneGeometry(1.0, 1.0).rotateX(-Math.PI / 2),
+        reticleMat
       );
       reticle.matrixAutoUpdate = false;
       reticle.visible = false;
@@ -529,7 +613,7 @@
         overlay.style.pointerEvents = 'auto';
         guideText.textContent = 'Swipe to rotate · Pinch to resize · Two-finger drag to move';
         setTimeout(() => { guideText.classList.add('fade-out'); }, 4000);
-        toolbar.classList.add('visible');
+        menuToggle.classList.add('visible');
         updateScaleUI();
       });
 
@@ -543,6 +627,15 @@
       btn11.ontouchend = do11;
       btn11.onclick = do11;
 
+      // Menu toggle
+      function toggleMenu(e) {
+        e.preventDefault(); e.stopPropagation();
+        menuToggle.classList.toggle('open');
+        menuPanel.classList.toggle('open');
+      }
+      menuToggle.ontouchend = toggleMenu;
+      menuToggle.onclick = toggleMenu;
+
       // ── 5. Gestures (active after placement, when overlay captures touches) ──
       let touches = {};
       let pinchDist0 = 0, pinchScale0 = 1;
@@ -551,7 +644,7 @@
 
       overlay.addEventListener('touchstart', e => {
         // Don't interfere with close button
-        if (e.target.closest('.ar-close-btn, .ar-tool-btn')) return;
+        if (e.target.closest('.ar-close-btn, .ar-menu-toggle, .ar-menu-panel')) return;
         for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
         const k = Object.keys(touches);
         if (k.length === 2 && placed) {
@@ -568,7 +661,7 @@
       }, { passive: true });
 
       overlay.addEventListener('touchmove', e => {
-        if (e.target.closest('.ar-close-btn, .ar-tool-btn')) return;
+        if (e.target.closest('.ar-close-btn, .ar-menu-toggle, .ar-menu-panel')) return;
         for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
         const k = Object.keys(touches);
 
@@ -628,7 +721,8 @@
         overlay.classList.remove('active');
         overlay.style.pointerEvents = '';
         guideText.classList.remove('fade-out');
-        toolbar.classList.remove('visible');
+        menuToggle.classList.remove('visible', 'open');
+        menuPanel.classList.remove('open');
         closeBtn.ontouchstart = null;
         closeBtn.onclick = null;
         cleanupFn = null;
@@ -645,6 +739,7 @@
             if (pose) {
               reticle.visible = true;
               reticle.matrix.fromArray(pose.transform.matrix);
+              reticleUniforms.uTime.value = ts * 0.001;
               hitCount++;
               if (modelLoaded && hitCount === 1) guideText.textContent = 'Tap to place model here';
             }
