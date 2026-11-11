@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#0a0a0a">
+  <meta name="theme-color" content="#f5f5f7">
   <title>AR Viewer</title>
 
   <script type="importmap">
@@ -22,8 +22,8 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f0f1a;
-      color: #fff;
+      background: #f5f5f7;
+      color: #1d1d1f;
       height: 100vh;
       height: 100dvh;
       overflow: hidden;
@@ -34,8 +34,8 @@
       width: 100%;
       height: 100vh;
       height: 100dvh;
-      background-color: #0f0f1a;
-      --poster-color: #0f0f1a;
+      background-color: #f5f5f7;
+      --poster-color: #f5f5f7;
       --progress-bar-color: #4361ee;
       --progress-bar-height: 3px;
     }
@@ -45,7 +45,7 @@
       position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
       background: #4361ee; border-radius: 16px; padding: 16px 36px;
       font-size: 16px; font-weight: 600; color: white; border: none;
-      box-shadow: 0 4px 24px rgba(67,97,238,0.45); z-index: 20;
+      box-shadow: 0 4px 24px rgba(67,97,238,0.3); z-index: 20;
       display: none; align-items: center; gap: 10px; cursor: pointer;
     }
     .ar-button:active { transform: translateX(-50%) scale(0.96); }
@@ -53,48 +53,49 @@
     .ar-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
 
     .loading-screen {
-      position: fixed; inset: 0; background: #0a0a0a;
+      position: fixed; inset: 0; background: #f5f5f7;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       z-index: 100; transition: opacity 0.4s ease;
     }
     .loading-screen.hidden { opacity: 0; pointer-events: none; }
 
-    .spinner { width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.08); border-top-color: #4361ee; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .spinner { width: 48px; height: 48px; border: 3px solid rgba(0,0,0,0.08); border-top-color: #4361ee; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .loading-status { margin-top: 20px; font-size: 14px; color: rgba(255,255,255,0.5); text-align: center; }
-    .progress-bar { width: 180px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 16px; overflow: hidden; }
+    .loading-status { margin-top: 20px; font-size: 14px; color: rgba(0,0,0,0.45); text-align: center; }
+    .progress-bar { width: 180px; height: 3px; background: rgba(0,0,0,0.08); border-radius: 2px; margin-top: 16px; overflow: hidden; }
     .progress-fill { height: 100%; width: 0%; background: #4361ee; border-radius: 2px; transition: width 0.3s ease; }
 
     .info-bar {
       position: fixed; top: 0; left: 0; right: 0; padding: 12px 16px;
       padding-top: max(12px, env(safe-area-inset-top));
-      background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+      background: linear-gradient(to bottom, rgba(255,255,255,0.85), transparent);
       display: flex; align-items: center; justify-content: space-between;
       z-index: 10; opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
     }
     .info-bar.visible { opacity: 1; pointer-events: auto; }
-    .model-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
-    .model-size { font-size: 12px; color: rgba(255,255,255,0.5); }
+    .model-name { font-size: 15px; font-weight: 600; color: #1d1d1f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+    .model-size { font-size: 12px; color: rgba(0,0,0,0.45); }
 
     .no-ar-notice {
       position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
-      background: rgba(30,30,50,0.85); backdrop-filter: blur(12px);
+      background: rgba(255,255,255,0.9); backdrop-filter: blur(12px);
       border-radius: 12px; padding: 14px 24px; font-size: 13px;
-      color: rgba(255,255,255,0.65); text-align: center; z-index: 20;
+      color: rgba(0,0,0,0.6); text-align: center; z-index: 20;
       max-width: 90%; display: none; line-height: 1.4;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     }
     .no-ar-notice.visible { display: block; }
 
     .error-screen {
-      position: fixed; inset: 0; background: #0a0a0a; display: none;
+      position: fixed; inset: 0; background: #f5f5f7; display: none;
       flex-direction: column; align-items: center; justify-content: center;
       padding: 32px; text-align: center; z-index: 100;
     }
     .error-screen.visible { display: flex; }
     .error-icon { width: 56px; height: 56px; border-radius: 50%; background: rgba(239,68,68,0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 24px; }
-    .error-screen h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
-    .error-screen p { font-size: 14px; color: rgba(255,255,255,0.5); max-width: 300px; line-height: 1.5; }
+    .error-screen h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1d1d1f; }
+    .error-screen p { font-size: 14px; color: rgba(0,0,0,0.5); max-width: 300px; line-height: 1.5; }
     .retry-btn { margin-top: 24px; background: #4361ee; color: #fff; border: none; border-radius: 10px; padding: 12px 28px; font-size: 15px; font-weight: 600; cursor: pointer; }
 
     /* ── AR Overlay (dom-overlay root during WebXR) ── */
@@ -220,6 +221,7 @@
     auto-rotate auto-rotate-delay="2000" rotation-per-second="24deg"
     shadow-intensity="1" shadow-softness="0.8" exposure="1"
     environment-image="neutral" interaction-prompt="auto"
+    bounds="tight"
     style="visibility: hidden; position: absolute;"
   ></model-viewer>
 

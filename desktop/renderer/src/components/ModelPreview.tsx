@@ -25,6 +25,7 @@ export default function ModelPreview({ src, style }: ModelPreviewProps) {
         interaction-prompt="none"
         shadow-intensity="0.4"
         environment-image="neutral"
+        bounds="tight"
         style={{
           width: '100%',
           height: '100%',
