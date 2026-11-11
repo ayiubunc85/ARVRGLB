@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Model Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f7; color: #1d1d1f;
+      padding: 24px; padding-top: max(24px, env(safe-area-inset-top));
+      min-height: 100vh;
+    }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: rgba(0,0,0,0.45); margin-bottom: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .card {
+      background: #fff; border-radius: 14px; overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      text-decoration: none; color: inherit;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .card:active { transform: scale(0.97); box-shadow: 0 1px 8px rgba(0,0,0,0.1); }
+    .card-preview {
+      width: 100%; aspect-ratio: 1; background: #f0f0f2;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card-preview svg { width: 48px; height: 48px; opacity: 0.2; }
+    .card-info { padding: 12px 14px; }
+    .card-name { font-size: 14px; font-weight: 600; text-transform: capitalize; margin-bottom: 4px; }
+    .card-meta { font-size: 11px; color: rgba(0,0,0,0.4); }
+  </style>
+</head>
+<body>
+  <h1>AR Model Viewer</h1>
+  <p class="subtitle">Tap a model to view in 3D and AR</p>
+  <div class="grid" id="grid"></div>
+  <script>
+    const models = [
+      { id: 'ar01-building', size: '9.1 MB' },
+      { id: 'ar02-facade', size: '23.5 MB' },
+      { id: 'ar03-building', size: '9.4 MB' },
+      { id: 'ar04a-sofa', size: '5.1 MB' },
+    ];
+    const grid = document.getElementById('grid');
+    models.forEach(m => {
+      const name = m.id.replace(/[-_]/g, ' ');
+      grid.innerHTML += `
+        <a class="card" href="ar/${m.id}">
+          <div class="card-preview">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div class="card-info">
+            <div class="card-name">${name}</div>
+            <div class="card-meta">${m.size}</div>
+          </div>
+        </a>`;
+    });
+  </script>
+</body>
+</html>
