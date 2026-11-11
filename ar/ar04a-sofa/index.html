@@ -263,7 +263,7 @@
       var arBtn = document.getElementById('arBtn');
       var noArNotice = document.getElementById('noArNotice');
 
-      var pathParts = window.location.pathname.split('/');
+      var pathParts = window.location.pathname.split('/').filter(Boolean);
       var modelId = decodeURIComponent(pathParts[pathParts.length - 1]);
 
       if (!modelId) { showError('No model specified', 'The URL is missing a model name.'); return; }
