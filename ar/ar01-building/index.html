@@ -184,7 +184,8 @@
     .ar-menu-close-bar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; opacity: 0.5; }
 
     .ar-menu-section { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .ar-menu-section .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(255,255,255,0.35); width: 100%; padding-left: 2px; }
+    .ar-menu-section .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(255,255,255,0.35); padding-left: 2px; }
+    .ar-menu-section .section-note { font-size: 9px; color: rgba(255,255,255,0.3); font-style: italic; margin-left: auto; padding-right: 2px; }
 
     .ar-menu-btn {
       display: flex; align-items: center; justify-content: center;
@@ -295,6 +296,7 @@
       <!-- Percentage row -->
       <div class="ar-menu-section">
         <span class="section-label">Scale</span>
+        <span class="section-note">Relative to fitted size, not 1:1</span>
         <div class="ar-scale-row" style="width:100%;">
           <button class="ar-menu-btn ar-scale-btn" data-pct="0.25">25%</button>
           <button class="ar-menu-btn ar-scale-btn" data-pct="0.50">50%</button>
@@ -847,7 +849,7 @@
         dirLight.target = modelGroup;
         overlay.style.pointerEvents = 'auto';
         guideText.textContent = 'Swipe to rotate · Pinch to resize · Two-finger drag to move';
-        setTimeout(() => { guideText.classList.add('fade-out'); }, 4000);
+        setTimeout(() => { guideText.classList.add('fade-out'); }, 2000);
         menuToggle.classList.add('visible');
         updateScaleUI();
       });
