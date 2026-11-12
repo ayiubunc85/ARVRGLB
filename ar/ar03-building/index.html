@@ -519,7 +519,10 @@
         // Wait for GLB pre-parse; use bounds-clamped blob for model-viewer
         // if a site mesh was detected, so auto-framing focuses on building.
         (window.__glbBufferPromise || Promise.resolve()).then(function() {
-          if (info.hasGlb) viewer.setAttribute('src', window.__previewGlbUrl || glbUrl);
+          if (info.hasGlb) {
+            if (window.__previewGlbUrl) viewer.removeAttribute('bounds');
+            viewer.setAttribute('src', window.__previewGlbUrl || glbUrl);
+          }
         });
         if (info.hasUsdz) viewer.setAttribute('ios-src', usdzUrl);
         viewer.setAttribute('alt', '3D model: ' + modelId);
