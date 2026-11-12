@@ -406,20 +406,14 @@
               if (boxes.length >= 2) {
                 boxes.sort(function(a,b){return a.maxDim-b.maxDim;});
                 if (boxes[boxes.length-1].maxDim > boxes[0].maxDim * 5) {
-                  var bldg = boxes[0];
-                  var site = boxes[boxes.length-1];
+                  var excludeNi = boxes[boxes.length-1].ni;
                   var g2 = JSON.parse(jsonStr);
-                  var siteNd = g2.nodes[site.ni];
-                  if (siteNd && siteNd.mesh != null) {
-                    var nt = siteNd.translation || [0,0,0];
-                    g2.meshes[siteNd.mesh].primitives.forEach(function(p) {
-                      var acc = g2.accessors[p.attributes.POSITION];
-                      if (acc && acc.min && acc.max) {
-                        acc.min = [bldg.min[0]-nt[0], bldg.min[1]-nt[1], bldg.min[2]-nt[2]];
-                        acc.max = [bldg.max[0]-nt[0], bldg.max[1]-nt[1], bldg.max[2]-nt[2]];
-                      }
-                    });
-                  }
+                  g2.nodes.forEach(function(nd) {
+                    if (nd.children) nd.children = nd.children.filter(function(c){return c!==excludeNi;});
+                  });
+                  g2.scenes.forEach(function(sc) {
+                    if (sc.nodes) sc.nodes = sc.nodes.filter(function(n){return n!==excludeNi;});
+                  });
                   var newJson = JSON.stringify(g2);
                   while (newJson.length % 4 !== 0) newJson += ' ';
                   var jsonBytes = new TextEncoder().encode(newJson);
@@ -441,7 +435,8 @@
                   nv.setUint32(bo + 4, 0x004E4942, true);
                   na.set(binData, bo + 8);
                   window.__previewGlbUrl = URL.createObjectURL(new Blob([nb], {type:'model/gltf-binary'}));
-                  console.log('Pre-parse: clamped site mesh bounds to building (site '+site.maxDim.toFixed(0)+' vs building '+bldg.maxDim.toFixed(0)+')');
+                  window.__siteNodeExcluded = true;
+                  console.log('Pre-parse: filtered GLB for preview (excluded node '+excludeNi+', site '+boxes[boxes.length-1].maxDim.toFixed(0)+' vs building '+boxes[0].maxDim.toFixed(0)+')');
                 }
               }
             }
@@ -516,13 +511,10 @@
       }
 
       function loadModel(info) {
-        // Wait for GLB pre-parse; use bounds-clamped blob for model-viewer
-        // if a site mesh was detected, so auto-framing focuses on building.
+        // Wait for GLB pre-parse; use filtered blob (building only) for
+        // model-viewer so auto-framing works. Site mesh injected after load.
         (window.__glbBufferPromise || Promise.resolve()).then(function() {
-          if (info.hasGlb) {
-            if (window.__previewGlbUrl) viewer.removeAttribute('bounds');
-            viewer.setAttribute('src', window.__previewGlbUrl || glbUrl);
-          }
+          if (info.hasGlb) viewer.setAttribute('src', window.__previewGlbUrl || glbUrl);
         });
         if (info.hasUsdz) viewer.setAttribute('ios-src', usdzUrl);
         viewer.setAttribute('alt', '3D model: ' + modelId);
@@ -545,6 +537,51 @@
           infoBar.classList.add('visible');
 
           try { if (viewer.updateFraming) viewer.updateFraming(); viewer.jumpCameraToGoal(); } catch(e) {}
+
+          // Inject site mesh back into model-viewer's scene after framing
+          if (window.__siteNodeExcluded && window.__glbBuffer) {
+            Promise.all([
+              import('three'),
+              import('three/addons/loaders/GLTFLoader.js'),
+              import('three/addons/loaders/DRACOLoader.js')
+            ]).then(function(mods) {
+              var THREE = mods[0];
+              var GLTFLoader = mods[1].GLTFLoader;
+              var DRACOLoader = mods[2].DRACOLoader;
+              var ss = Object.getOwnPropertySymbols(viewer).find(function(s) { return s.description === 'scene'; });
+              if (!ss) return;
+              var mvScene = viewer[ss];
+              if (!mvScene || !mvScene.target) return;
+              var loader = new GLTFLoader();
+              var draco = new DRACOLoader();
+              draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+              loader.setDRACOLoader(draco);
+              loader.parse(window.__glbBuffer.slice(0), '', function(gltf) {
+                var meshes = [];
+                gltf.scene.traverse(function(c) {
+                  if (c.isMesh) {
+                    var b = new THREE.Box3().setFromObject(c);
+                    var s = b.getSize(new THREE.Vector3());
+                    meshes.push({ mesh: c, maxDim: Math.max(s.x, s.y, s.z) });
+                  }
+                });
+                meshes.sort(function(a, b) { return a.maxDim - b.maxDim; });
+                if (meshes.length >= 2) {
+                  var site = meshes[meshes.length - 1].mesh;
+                  site.frustumCulled = false;
+                  var gltfContainer = mvScene.target.children.find(function(c) { return c.name === 'Scene'; });
+                  if (gltfContainer && gltfContainer.children[0]) {
+                    gltfContainer.children[0].add(site);
+                  } else {
+                    mvScene.target.add(site);
+                  }
+                  viewer.modelIsVisible = true;
+                  console.log('3D preview: injected site mesh into model-viewer scene');
+                }
+                draco.dispose();
+              }, function(err) { console.log('Site mesh injection failed:', err); });
+            }).catch(function(err) { console.log('Three.js import failed:', err); });
+          }
 
           // Check if WebXR AR is available
           setTimeout(async function () {
