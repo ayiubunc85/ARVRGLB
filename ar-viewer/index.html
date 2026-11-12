@@ -369,9 +369,59 @@
       var glbUrl = baseUrl + '/models/' + encodeURIComponent(modelId) + '.glb';
       var usdzUrl = baseUrl + '/models/' + encodeURIComponent(modelId) + '.usdz';
 
-      // Pre-cache GLB buffer so AR doesn't re-download
+      // Pre-cache GLB buffer so AR doesn't re-download.
+      // Also pre-parse the GLB JSON header to detect oversized site meshes
+      // and remove bounds="tight" BEFORE model-viewer starts loading
+      // (model-viewer bakes its viewport normalization from bounds at load time).
       window.__arModelUrl = glbUrl;
-      window.__glbBufferPromise = fetch(glbUrl).then(function(r) { return r.ok ? r.arrayBuffer() : null; }).then(function(buf) { window.__glbBuffer = buf; return buf; }).catch(function() { return null; });
+      window.__glbBufferPromise = fetch(glbUrl).then(function(r) { return r.ok ? r.arrayBuffer() : null; }).then(function(buf) {
+        window.__glbBuffer = buf;
+        if (buf && buf.byteLength > 20) {
+          try {
+            var dv = new DataView(buf);
+            var jsonLen = dv.getUint32(12, true);
+            var jsonStr = new TextDecoder().decode(new Uint8Array(buf, 20, jsonLen));
+            var g = JSON.parse(jsonStr);
+            if (g.meshes && g.accessors && g.nodes && g.scenes) {
+              var boxes = [];
+              function vn(ni, pt) {
+                var nd = g.nodes[ni]; if (!nd) return;
+                var nt = nd.translation || [0,0,0];
+                var t = [pt[0]+nt[0], pt[1]+nt[1], pt[2]+nt[2]];
+                if (nd.mesh != null) {
+                  var nmin=[Infinity,Infinity,Infinity], nmax=[-Infinity,-Infinity,-Infinity];
+                  g.meshes[nd.mesh].primitives.forEach(function(p) {
+                    var ac = g.accessors[p.attributes.POSITION];
+                    if (!ac||!ac.min||!ac.max) return;
+                    for(var a=0;a<3;a++){nmin[a]=Math.min(nmin[a],ac.min[a]+t[a]);nmax[a]=Math.max(nmax[a],ac.max[a]+t[a]);}
+                  });
+                  if (nmin[0]<Infinity) {
+                    var d=Math.max(nmax[0]-nmin[0],nmax[1]-nmin[1],nmax[2]-nmin[2]);
+                    boxes.push({min:nmin,max:nmax,maxDim:d});
+                  }
+                }
+                (nd.children||[]).forEach(function(c){vn(c,t);});
+              }
+              (g.scenes[g.scene||0].nodes||[]).forEach(function(ni){vn(ni,[0,0,0]);});
+              if (boxes.length >= 2) {
+                boxes.sort(function(a,b){return a.maxDim-b.maxDim;});
+                if (boxes[boxes.length-1].maxDim > boxes[0].maxDim * 5) {
+                  var fb={min:[Infinity,Infinity,Infinity],max:[-Infinity,-Infinity,-Infinity]};
+                  for(var i=0;i<boxes.length-1;i++){for(var a=0;a<3;a++){fb.min[a]=Math.min(fb.min[a],boxes[i].min[a]);fb.max[a]=Math.max(fb.max[a],boxes[i].max[a]);}}
+                  var fd=Math.max(fb.max[0]-fb.min[0],fb.max[1]-fb.min[1],fb.max[2]-fb.min[2]);
+                  window.__buildingFrame = {
+                    cx:(fb.min[0]+fb.max[0])/2, cy:(fb.min[1]+fb.max[1])/2, cz:(fb.min[2]+fb.max[2])/2, dim:fd,
+                    siteDim:boxes[boxes.length-1].maxDim
+                  };
+                  viewer.removeAttribute('bounds');
+                  console.log('Pre-parse: site mesh detected ('+boxes[boxes.length-1].maxDim.toFixed(0)+' vs building '+fd.toFixed(0)+'), removed bounds=tight');
+                }
+              }
+            }
+          } catch(e) { console.log('GLB pre-parse error:', e); }
+        }
+        return buf;
+      }).catch(function() { return null; });
 
       // Back button — navigate to model dashboard (visible immediately)
       backBtn.classList.add('visible');
@@ -439,7 +489,11 @@
       }
 
       function loadModel(info) {
-        if (info.hasGlb) viewer.setAttribute('src', glbUrl);
+        // Wait for GLB pre-parse so bounds="tight" is removed before
+        // model-viewer starts loading (if a site mesh was detected).
+        (window.__glbBufferPromise || Promise.resolve()).then(function() {
+          if (info.hasGlb) viewer.setAttribute('src', glbUrl);
+        });
         if (info.hasUsdz) viewer.setAttribute('ios-src', usdzUrl);
         viewer.setAttribute('alt', '3D model: ' + modelId);
 
@@ -460,72 +514,17 @@
           viewer.style.position = 'static';
           infoBar.classList.add('visible');
 
-          // Frame on the primary building, not the full scene.
-          // Parse GLB header to read per-mesh accessor bounds (works before
-          // Draco decompression — accessor min/max are always in the JSON).
-          (window.__glbBufferPromise || Promise.resolve(null)).then(function(buf) {
-          var reframed = false;
-          try {
-            if (buf && buf.byteLength > 20) {
-              var header = new DataView(buf);
-              var jsonLen = header.getUint32(12, true);
-              var jsonStr = new TextDecoder().decode(new Uint8Array(buf, 20, jsonLen));
-              var gltf = JSON.parse(jsonStr);
-              if (gltf.meshes && gltf.accessors && gltf.nodes) {
-                // Collect mesh-bearing nodes (recurse into children)
-                var nodeBoxes = [];
-                function visitNode(ni, parentT) {
-                  var node = gltf.nodes[ni];
-                  if (!node) return;
-                  var nt = node.translation || [0,0,0];
-                  var t = [parentT[0]+nt[0], parentT[1]+nt[1], parentT[2]+nt[2]];
-                  if (node.mesh != null) {
-                    var mesh = gltf.meshes[node.mesh];
-                    var nmin = [Infinity,Infinity,Infinity], nmax = [-Infinity,-Infinity,-Infinity];
-                    mesh.primitives.forEach(function(p) {
-                      var acc = gltf.accessors[p.attributes.POSITION];
-                      if (!acc || !acc.min || !acc.max) return;
-                      for (var a=0;a<3;a++) { nmin[a]=Math.min(nmin[a],acc.min[a]+t[a]); nmax[a]=Math.max(nmax[a],acc.max[a]+t[a]); }
-                    });
-                    if (nmin[0] < Infinity) {
-                      var d = Math.max(nmax[0]-nmin[0], nmax[1]-nmin[1], nmax[2]-nmin[2]);
-                      nodeBoxes.push({min:nmin, max:nmax, maxDim:d});
-                    }
-                  }
-                  (node.children || []).forEach(function(ci) { visitNode(ci, t); });
-                }
-                (gltf.scenes[gltf.scene || 0].nodes || []).forEach(function(ni) { visitNode(ni, [0,0,0]); });
-                if (nodeBoxes.length >= 2) {
-                  nodeBoxes.sort(function(a,b){return a.maxDim-b.maxDim;});
-                  var smallest = nodeBoxes[0].maxDim;
-                  var big = nodeBoxes[nodeBoxes.length-1].maxDim;
-                  if (big > smallest * 5) {
-                    var fb = {min:[Infinity,Infinity,Infinity], max:[-Infinity,-Infinity,-Infinity]};
-                    for (var i=0; i<nodeBoxes.length-1; i++) {
-                      for (var a=0;a<3;a++) { fb.min[a]=Math.min(fb.min[a],nodeBoxes[i].min[a]); fb.max[a]=Math.max(fb.max[a],nodeBoxes[i].max[a]); }
-                    }
-                    var cx=(fb.min[0]+fb.max[0])/2, cy=(fb.min[1]+fb.max[1])/2, cz=(fb.min[2]+fb.max[2])/2;
-                    var fDim = Math.max(fb.max[0]-fb.min[0], fb.max[1]-fb.min[1], fb.max[2]-fb.min[2]);
-                    // Remove bounds="tight" so model-viewer doesn't
-                    // normalize to the oversized scene, then set explicit
-                    // camera framing on the building.
-                    viewer.removeAttribute('bounds');
-                    viewer.setAttribute('camera-target', cx+'m '+cy+'m '+cz+'m');
-                    viewer.setAttribute('camera-orbit', 'auto auto '+(fDim*1.8)+'m');
-                    viewer.setAttribute('field-of-view', '35deg');
-                    viewer.setAttribute('min-field-of-view', '5deg');
-                    viewer.jumpCameraToGoal();
-                    reframed = true;
-                    console.log('3D preview: reframed on building ('+fDim.toFixed(1)+' vs site '+big.toFixed(1)+')');
-                  }
-                }
-              }
-            }
-          } catch(e) { console.log('Reframe parse:', e); }
-          if (!reframed) {
+          // Apply building-focused camera if pre-parse detected a site mesh
+          var bf = window.__buildingFrame;
+          if (bf) {
+            viewer.setAttribute('camera-target', bf.cx+'m '+bf.cy+'m '+bf.cz+'m');
+            viewer.setAttribute('camera-orbit', 'auto auto '+(bf.dim*1.8)+'m');
+            viewer.setAttribute('min-field-of-view', '5deg');
+            viewer.jumpCameraToGoal();
+            console.log('3D preview: framed on building ('+bf.dim.toFixed(1)+' vs site '+bf.siteDim.toFixed(1)+')');
+          } else {
             try { if (viewer.updateFraming) viewer.updateFraming(); viewer.jumpCameraToGoal(); } catch(e) {}
           }
-          }); // end glbBufferPromise.then
 
           // Check if WebXR AR is available
           setTimeout(async function () {
