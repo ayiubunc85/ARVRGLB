@@ -406,12 +406,42 @@
               if (boxes.length >= 2) {
                 boxes.sort(function(a,b){return a.maxDim-b.maxDim;});
                 if (boxes[boxes.length-1].maxDim > boxes[0].maxDim * 5) {
-                  var fb = boxes[0];
-                  window.__buildingFrame = {
-                    cx:(fb.min[0]+fb.max[0])/2, cy:(fb.min[1]+fb.max[1])/2, cz:(fb.min[2]+fb.max[2])/2,
-                    maxDim:fb.maxDim, siteDim:boxes[boxes.length-1].maxDim
-                  };
-                  console.log('Pre-parse: site mesh detected ('+boxes[boxes.length-1].maxDim.toFixed(0)+' vs building '+fb.maxDim.toFixed(0)+'), will target camera on building');
+                  var bldg = boxes[0];
+                  var site = boxes[boxes.length-1];
+                  var g2 = JSON.parse(jsonStr);
+                  var siteNd = g2.nodes[site.ni];
+                  if (siteNd && siteNd.mesh != null) {
+                    var nt = siteNd.translation || [0,0,0];
+                    g2.meshes[siteNd.mesh].primitives.forEach(function(p) {
+                      var acc = g2.accessors[p.attributes.POSITION];
+                      if (acc && acc.min && acc.max) {
+                        acc.min = [bldg.min[0]-nt[0], bldg.min[1]-nt[1], bldg.min[2]-nt[2]];
+                        acc.max = [bldg.max[0]-nt[0], bldg.max[1]-nt[1], bldg.max[2]-nt[2]];
+                      }
+                    });
+                  }
+                  var newJson = JSON.stringify(g2);
+                  while (newJson.length % 4 !== 0) newJson += ' ';
+                  var jsonBytes = new TextEncoder().encode(newJson);
+                  var binOff = 20 + jsonLen;
+                  var binLen = dv.getUint32(binOff, true);
+                  var binData = new Uint8Array(buf, binOff + 8, binLen);
+                  var total = 12 + 8 + jsonBytes.length + 8 + binLen;
+                  var nb = new ArrayBuffer(total);
+                  var nv = new DataView(nb);
+                  var na = new Uint8Array(nb);
+                  nv.setUint32(0, 0x46546C67, true);
+                  nv.setUint32(4, 2, true);
+                  nv.setUint32(8, total, true);
+                  nv.setUint32(12, jsonBytes.length, true);
+                  nv.setUint32(16, 0x4E4F534A, true);
+                  na.set(jsonBytes, 20);
+                  var bo = 20 + jsonBytes.length;
+                  nv.setUint32(bo, binLen, true);
+                  nv.setUint32(bo + 4, 0x004E4942, true);
+                  na.set(binData, bo + 8);
+                  window.__previewGlbUrl = URL.createObjectURL(new Blob([nb], {type:'model/gltf-binary'}));
+                  console.log('Pre-parse: clamped site mesh bounds to building (site '+site.maxDim.toFixed(0)+' vs building '+bldg.maxDim.toFixed(0)+')');
                 }
               }
             }
@@ -486,20 +516,10 @@
       }
 
       function loadModel(info) {
-        // Wait for GLB pre-parse; if a site mesh was detected, set camera
-        // attributes BEFORE loading so model-viewer frames on the building.
+        // Wait for GLB pre-parse; use bounds-clamped blob for model-viewer
+        // if a site mesh was detected, so auto-framing focuses on building.
         (window.__glbBufferPromise || Promise.resolve()).then(function() {
-          if (info.hasGlb) {
-            var bf = window.__buildingFrame;
-            if (bf) {
-              viewer.setAttribute('camera-target', bf.cx.toFixed(4)+'m '+bf.cy.toFixed(4)+'m '+bf.cz.toFixed(4)+'m');
-              viewer.setAttribute('camera-orbit', 'auto auto '+(bf.maxDim*2.5).toFixed(4)+'m');
-              viewer.setAttribute('field-of-view', '35deg');
-              viewer.removeAttribute('bounds');
-              console.log('3D preview: camera pre-set on building center');
-            }
-            viewer.setAttribute('src', glbUrl);
-          }
+          if (info.hasGlb) viewer.setAttribute('src', window.__previewGlbUrl || glbUrl);
         });
         if (info.hasUsdz) viewer.setAttribute('ios-src', usdzUrl);
         viewer.setAttribute('alt', '3D model: ' + modelId);
@@ -521,12 +541,7 @@
           viewer.style.position = 'static';
           infoBar.classList.add('visible');
 
-          if (!window.__buildingFrame) {
-            try { if (viewer.updateFraming) viewer.updateFraming(); viewer.jumpCameraToGoal(); } catch(e) {}
-          } else {
-            try { viewer.jumpCameraToGoal(); } catch(e) {}
-            console.log('3D preview: framed on building ('+window.__buildingFrame.maxDim.toFixed(1)+' vs site '+window.__buildingFrame.siteDim.toFixed(1)+')');
-          }
+          try { if (viewer.updateFraming) viewer.updateFraming(); viewer.jumpCameraToGoal(); } catch(e) {}
 
           // Check if WebXR AR is available
           setTimeout(async function () {
