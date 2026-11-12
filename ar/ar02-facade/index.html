@@ -369,8 +369,9 @@
       var glbUrl = baseUrl + '/models/' + encodeURIComponent(modelId) + '.glb';
       var usdzUrl = baseUrl + '/models/' + encodeURIComponent(modelId) + '.usdz';
 
-      // Expose for the AR module
+      // Pre-cache GLB buffer so AR doesn't re-download
       window.__arModelUrl = glbUrl;
+      window.__glbBufferPromise = fetch(glbUrl).then(function(r) { return r.ok ? r.arrayBuffer() : null; }).catch(function() { return null; });
 
       // Back button — navigate to model dashboard (visible immediately)
       backBtn.classList.add('visible');
@@ -425,9 +426,11 @@
           xhr.open('GET', baseUrl + '/api/models/' + encodeURIComponent(modelId), true);
           xhr.timeout = 5000;
           xhr.onload = function () {
-            if (xhr.status === 200) resolve(JSON.parse(xhr.responseText));
-            else if (xhr.status === 404) reject({ title: 'Model not found', message: '"' + modelId + '" not on server.' });
-            else resolve({ hasGlb: true, hasUsdz: false });
+            if (xhr.status === 200) {
+              try { resolve(JSON.parse(xhr.responseText)); } catch(e) { resolve({ hasGlb: true, hasUsdz: false }); }
+            } else {
+              resolve({ hasGlb: true, hasUsdz: false });
+            }
           };
           xhr.onerror = function () { resolve({ hasGlb: true, hasUsdz: false }); };
           xhr.ontimeout = function () { resolve({ hasGlb: true, hasUsdz: false }); };
@@ -992,10 +995,11 @@
         renderer.render(scene, camera);
       });
 
-      fetch(modelUrl).then(resp => {
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        return resp.arrayBuffer();
-      }).then(buffer => {
+      (window.__glbBufferPromise || fetch(modelUrl).then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.arrayBuffer();
+      })).then(buffer => {
+        if (!buffer) throw new Error('GLB download failed');
         const gltfLoader = new GLTFLoader();
         const dracoLoader = new DRACOLoader();
         dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
