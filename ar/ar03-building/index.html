@@ -460,11 +460,16 @@
           viewer.style.position = 'static';
           infoBar.classList.add('visible');
 
-          // Ensure camera frames the model center (helps off-origin geometry)
-          requestAnimationFrame(function() {
+          // Frame model — needed for Draco + off-origin geometry (ar03)
+          // model-viewer internally normalizes to unit cube; camera-orbit
+          // auto value should work, but we force a reframe after render.
+          viewer.addEventListener('model-visibility', function onVis(ev) {
+            if (!ev.detail.visible) return;
+            viewer.removeEventListener('model-visibility', onVis);
             try {
-              var ct = viewer.getCameraTarget();
-              viewer.cameraTarget = ct.x + 'm ' + ct.y + 'm ' + ct.z + 'm';
+              // Reset orbit so model-viewer recalculates from loaded geometry
+              viewer.setAttribute('camera-orbit', 'auto auto auto');
+              viewer.setAttribute('camera-target', 'auto auto auto');
               viewer.jumpCameraToGoal();
             } catch(e) {}
           });
