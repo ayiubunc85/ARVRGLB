@@ -506,8 +506,14 @@
                     }
                     var cx=(fb.min[0]+fb.max[0])/2, cy=(fb.min[1]+fb.max[1])/2, cz=(fb.min[2]+fb.max[2])/2;
                     var fDim = Math.max(fb.max[0]-fb.min[0], fb.max[1]-fb.min[1], fb.max[2]-fb.min[2]);
+                    // Remove bounds="tight" so model-viewer doesn't
+                    // normalize to the oversized scene, then set explicit
+                    // camera framing on the building.
+                    viewer.removeAttribute('bounds');
                     viewer.setAttribute('camera-target', cx+'m '+cy+'m '+cz+'m');
-                    viewer.setAttribute('camera-orbit', 'auto auto '+(fDim*2)+'m');
+                    viewer.setAttribute('camera-orbit', 'auto auto '+(fDim*1.8)+'m');
+                    viewer.setAttribute('field-of-view', '35deg');
+                    viewer.setAttribute('min-field-of-view', '5deg');
                     viewer.jumpCameraToGoal();
                     reframed = true;
                     console.log('3D preview: reframed on building ('+fDim.toFixed(1)+' vs site '+big.toFixed(1)+')');
