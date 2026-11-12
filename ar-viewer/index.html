@@ -472,29 +472,34 @@
               var jsonStr = new TextDecoder().decode(new Uint8Array(buf, 20, jsonLen));
               var gltf = JSON.parse(jsonStr);
               if (gltf.meshes && gltf.accessors && gltf.nodes) {
-                // Build per-node world-space bounding box from accessor min/max + node translation
+                // Collect mesh-bearing nodes (recurse into children)
                 var nodeBoxes = [];
-                (gltf.scenes[gltf.scene || 0].nodes || []).forEach(function(ni) {
+                function visitNode(ni, parentT) {
                   var node = gltf.nodes[ni];
-                  if (node.mesh == null) return;
-                  var mesh = gltf.meshes[node.mesh];
-                  var t = node.translation || [0,0,0];
-                  var nmin = [Infinity,Infinity,Infinity], nmax = [-Infinity,-Infinity,-Infinity];
-                  mesh.primitives.forEach(function(p) {
-                    var acc = gltf.accessors[p.attributes.POSITION];
-                    if (!acc || !acc.min || !acc.max) return;
-                    for (var a=0;a<3;a++) { nmin[a]=Math.min(nmin[a],acc.min[a]+t[a]); nmax[a]=Math.max(nmax[a],acc.max[a]+t[a]); }
-                  });
-                  if (nmin[0] < Infinity) {
-                    var d = Math.max(nmax[0]-nmin[0], nmax[1]-nmin[1], nmax[2]-nmin[2]);
-                    nodeBoxes.push({min:nmin, max:nmax, maxDim:d});
+                  if (!node) return;
+                  var nt = node.translation || [0,0,0];
+                  var t = [parentT[0]+nt[0], parentT[1]+nt[1], parentT[2]+nt[2]];
+                  if (node.mesh != null) {
+                    var mesh = gltf.meshes[node.mesh];
+                    var nmin = [Infinity,Infinity,Infinity], nmax = [-Infinity,-Infinity,-Infinity];
+                    mesh.primitives.forEach(function(p) {
+                      var acc = gltf.accessors[p.attributes.POSITION];
+                      if (!acc || !acc.min || !acc.max) return;
+                      for (var a=0;a<3;a++) { nmin[a]=Math.min(nmin[a],acc.min[a]+t[a]); nmax[a]=Math.max(nmax[a],acc.max[a]+t[a]); }
+                    });
+                    if (nmin[0] < Infinity) {
+                      var d = Math.max(nmax[0]-nmin[0], nmax[1]-nmin[1], nmax[2]-nmin[2]);
+                      nodeBoxes.push({min:nmin, max:nmax, maxDim:d});
+                    }
                   }
-                });
+                  (node.children || []).forEach(function(ci) { visitNode(ci, t); });
+                }
+                (gltf.scenes[gltf.scene || 0].nodes || []).forEach(function(ni) { visitNode(ni, [0,0,0]); });
                 if (nodeBoxes.length >= 2) {
                   nodeBoxes.sort(function(a,b){return a.maxDim-b.maxDim;});
-                  var med = nodeBoxes[Math.floor(nodeBoxes.length/2)].maxDim;
+                  var smallest = nodeBoxes[0].maxDim;
                   var big = nodeBoxes[nodeBoxes.length-1].maxDim;
-                  if (big > med * 5) {
+                  if (big > smallest * 5) {
                     var fb = {min:[Infinity,Infinity,Infinity], max:[-Infinity,-Infinity,-Infinity]};
                     for (var i=0; i<nodeBoxes.length-1; i++) {
                       for (var a=0;a<3;a++) { fb.min[a]=Math.min(fb.min[a],nodeBoxes[i].min[a]); fb.max[a]=Math.max(fb.max[a],nodeBoxes[i].max[a]); }
@@ -1073,12 +1078,12 @@
         // site context and frame on the remaining meshes instead.
         let frameBox = new THREE.Box3().setFromObject(model);
         if (meshBoxes.length >= 2) {
-          const medianDim = meshBoxes[Math.floor(meshBoxes.length / 2)].maxDim;
+          const smallestDim = meshBoxes[0].maxDim;
           const largestDim = meshBoxes[meshBoxes.length - 1].maxDim;
-          if (largestDim > medianDim * 5) {
+          if (largestDim > smallestDim * 5) {
             frameBox = new THREE.Box3();
             meshBoxes.slice(0, -1).forEach(m => frameBox.union(m.box));
-            console.log('AR framing: excluding oversized site mesh (' + largestDim.toFixed(1) + ' vs median ' + medianDim.toFixed(1) + ')');
+            console.log('AR framing: excluding oversized site mesh (' + largestDim.toFixed(1) + ' vs smallest ' + smallestDim.toFixed(1) + ')');
           }
         }
         const size = frameBox.getSize(new THREE.Vector3());
