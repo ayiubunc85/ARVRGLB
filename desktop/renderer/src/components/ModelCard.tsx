@@ -28,12 +28,15 @@ export default function ModelCard({ model, selected, onSelect }: ModelCardProps)
     <div
       onClick={() => onSelect(model.id)}
       style={{
-        background: selected ? '#1e1e30' : '#1a1a24',
+        background: '#fff',
         borderRadius: 12,
         padding: 20,
-        border: selected ? '1px solid #4361ee' : '1px solid #2a2a3a',
+        border: selected ? '2px solid #4361ee' : '1px solid rgba(0,0,0,0.06)',
         cursor: 'pointer',
-        transition: 'border-color 0.2s, background 0.2s',
+        transition: 'border-color 0.2s, box-shadow 0.2s',
+        boxShadow: selected
+          ? '0 2px 12px rgba(67,97,238,0.12)'
+          : '0 1px 3px rgba(0,0,0,0.04)',
       }}
     >
       <ModelPreview
@@ -41,7 +44,7 @@ export default function ModelCard({ model, selected, onSelect }: ModelCardProps)
         style={{
           width: '100%',
           height: 160,
-          background: '#111119',
+          background: '#f0f0f2',
           borderRadius: 8,
           marginBottom: 14,
           overflow: 'hidden',
@@ -52,7 +55,7 @@ export default function ModelCard({ model, selected, onSelect }: ModelCardProps)
       <h3 style={{
         fontSize: 15,
         fontWeight: 600,
-        color: '#fff',
+        color: '#1d1d1f',
         marginBottom: 6,
         textTransform: 'capitalize',
         whiteSpace: 'nowrap',
@@ -65,8 +68,8 @@ export default function ModelCard({ model, selected, onSelect }: ModelCardProps)
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{
           fontSize: 11,
-          color: '#888',
-          background: '#111119',
+          color: 'rgba(0,0,0,0.45)',
+          background: '#f0f0f2',
           padding: '2px 8px',
           borderRadius: 4,
           textTransform: 'uppercase',
@@ -77,7 +80,7 @@ export default function ModelCard({ model, selected, onSelect }: ModelCardProps)
           <span style={{
             fontSize: 10,
             color: '#22c55e',
-            background: 'rgba(34, 197, 94, 0.1)',
+            background: 'rgba(34, 197, 94, 0.08)',
             padding: '2px 6px',
             borderRadius: 4,
           }}>
@@ -94,7 +97,7 @@ export default function ModelCard({ model, selected, onSelect }: ModelCardProps)
         <div style={{
           marginTop: 16,
           paddingTop: 16,
-          borderTop: '1px solid #2a2a3a',
+          borderTop: '1px solid rgba(0,0,0,0.06)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -102,7 +105,7 @@ export default function ModelCard({ model, selected, onSelect }: ModelCardProps)
           <QRCode url={model.arUrl} size={180} label="Scan to view in AR" />
           <p style={{
             fontSize: 11,
-            color: '#555',
+            color: 'rgba(0,0,0,0.3)',
             marginTop: 8,
             wordBreak: 'break-all',
             textAlign: 'center',

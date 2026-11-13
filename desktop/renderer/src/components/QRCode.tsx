@@ -18,7 +18,7 @@ export default function QRCode({ url, size = 200, label }: QRCodeProps) {
       qr.toDataURL(url, {
         width: size,
         margin: 2,
-        color: { dark: '#ffffffff', light: '#00000000' },
+        color: { dark: '#1d1d1fff', light: '#00000000' },
         errorCorrectionLevel: 'M',
       }).then((dataUrl: string) => {
         setDataUrl(dataUrl);
@@ -36,12 +36,12 @@ export default function QRCode({ url, size = 200, label }: QRCodeProps) {
       <div style={{
         width: size,
         height: size,
-        background: '#111119',
+        background: '#f5f5f7',
         borderRadius: 12,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        border: '1px solid #2a2a3a',
+        border: '1px solid rgba(0,0,0,0.06)',
       }}>
         {dataUrl ? (
           <img
@@ -52,12 +52,12 @@ export default function QRCode({ url, size = 200, label }: QRCodeProps) {
             style={{ imageRendering: 'pixelated' }}
           />
         ) : (
-          <span style={{ color: '#555', fontSize: 13 }}>Generating…</span>
+          <span style={{ color: 'rgba(0,0,0,0.3)', fontSize: 13 }}>Generating…</span>
         )}
       </div>
 
       {label && (
-        <span style={{ fontSize: 11, color: '#666', textAlign: 'center', maxWidth: size }}>
+        <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.4)', textAlign: 'center', maxWidth: size }}>
           {label}
         </span>
       )}
@@ -66,8 +66,8 @@ export default function QRCode({ url, size = 200, label }: QRCodeProps) {
         <button
           onClick={() => navigator.clipboard.writeText(url)}
           style={{
-            background: '#2a2a3a',
-            color: '#ccc',
+            background: '#f0f0f2',
+            color: '#1d1d1f',
             border: 'none',
             borderRadius: 8,
             padding: '6px 14px',

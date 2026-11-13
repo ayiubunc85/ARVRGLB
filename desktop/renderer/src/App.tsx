@@ -161,7 +161,7 @@ export default function App() {
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: 'rgba(67, 97, 238, 0.12)',
+          background: 'rgba(67, 97, 238, 0.08)',
           border: '3px dashed #4361ee',
           borderRadius: 12,
           zIndex: 100,
@@ -171,18 +171,19 @@ export default function App() {
           pointerEvents: 'none',
         }}>
           <div style={{
-            background: '#1a1a24',
+            background: '#fff',
             borderRadius: 16,
             padding: '32px 48px',
             textAlign: 'center',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
           }}>
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4361ee" strokeWidth="1.5" style={{ marginBottom: 12 }}>
               <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            <p style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>Drop model files here</p>
-            <p style={{ fontSize: 13, color: '#888', marginTop: 4 }}>.glb, .gltf, or .usdz</p>
+            <p style={{ fontSize: 16, fontWeight: 600, color: '#1d1d1f' }}>Drop model files here</p>
+            <p style={{ fontSize: 13, color: 'rgba(0,0,0,0.45)', marginTop: 4 }}>.glb, .gltf, or .usdz</p>
           </div>
         </div>
       )}
@@ -203,18 +204,18 @@ export default function App() {
       {/* Header */}
       <header style={{
         padding: '20px 28px',
-        borderBottom: '1px solid #1a1a24',
+        borderBottom: '1px solid rgba(0,0,0,0.06)',
         flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#fff' }}>AR Model Viewer</h1>
-            <p style={{ fontSize: 13, color: '#666', marginTop: 2 }}>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#1d1d1f' }}>AR Model Viewer</h1>
+            <p style={{ fontSize: 13, color: 'rgba(0,0,0,0.4)', marginTop: 2 }}>
               Serve 3D models to phones via AR
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 12, color: '#555' }}>
+            <span style={{ fontSize: 12, color: 'rgba(0,0,0,0.35)' }}>
               {models.length} model{models.length !== 1 ? 's' : ''}
             </span>
             <button
@@ -266,31 +267,32 @@ export default function App() {
             justifyContent: 'space-between',
             marginBottom: 16,
           }}>
-            <h2 style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>
+            <h2 style={{ fontSize: 15, fontWeight: 600, color: '#1d1d1f' }}>
               Models
             </h2>
           </div>
 
           {models.length === 0 ? (
             <div style={{
-              background: '#1a1a24',
+              background: '#fff',
               borderRadius: 12,
               padding: 48,
               textAlign: 'center',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
             }}>
               <svg
                 width="48" height="48" viewBox="0 0 24 24"
-                fill="none" stroke="#3a3a4a" strokeWidth="1.5"
+                fill="none" stroke="rgba(0,0,0,0.15)" strokeWidth="1.5"
                 style={{ marginBottom: 16 }}
               >
                 <path d="M12 2L2 7l10 5 10-5-10-5z" />
                 <path d="M2 17l10 5 10-5" />
                 <path d="M2 12l10 5 10-5" />
               </svg>
-              <p style={{ fontSize: 14, color: '#888' }}>
+              <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.5)' }}>
                 No models yet
               </p>
-              <p style={{ fontSize: 13, color: '#555', marginTop: 8 }}>
+              <p style={{ fontSize: 13, color: 'rgba(0,0,0,0.35)', marginTop: 8 }}>
                 Drag and drop <code style={{ color: '#4361ee' }}>.glb</code> or{' '}
                 <code style={{ color: '#4361ee' }}>.usdz</code> files here, or click{' '}
                 <span style={{ color: '#4361ee', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
@@ -321,7 +323,7 @@ export default function App() {
           <aside style={{
             width: 300,
             flexShrink: 0,
-            background: '#1a1a24',
+            background: '#fff',
             borderRadius: 12,
             padding: 24,
             display: 'flex',
@@ -329,6 +331,7 @@ export default function App() {
             alignItems: 'center',
             gap: 20,
             overflow: 'auto',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
           }}>
             {renaming ? (
               <form
@@ -344,11 +347,11 @@ export default function App() {
                   onChange={e => setRenameValue(e.target.value)}
                   style={{
                     flex: 1,
-                    background: '#111119',
+                    background: '#f5f5f7',
                     border: '1px solid #4361ee',
                     borderRadius: 6,
                     padding: '6px 10px',
-                    color: '#fff',
+                    color: '#1d1d1f',
                     fontSize: 14,
                     outline: 'none',
                   }}
@@ -363,7 +366,7 @@ export default function App() {
               <h3 style={{
                 fontSize: 16,
                 fontWeight: 600,
-                color: '#fff',
+                color: '#1d1d1f',
                 textTransform: 'capitalize',
                 textAlign: 'center',
               }}>
@@ -410,7 +413,7 @@ export default function App() {
               style={{
                 width: '100%',
                 height: 200,
-                background: '#111119',
+                background: '#f0f0f2',
                 borderRadius: 8,
                 overflow: 'hidden',
               }}
@@ -452,12 +455,12 @@ export default function App() {
             {/* AR URL */}
             <div style={{
               width: '100%',
-              background: '#111119',
+              background: '#f0f0f2',
               borderRadius: 8,
               padding: 12,
               wordBreak: 'break-all',
               fontSize: 11,
-              color: '#555',
+              color: 'rgba(0,0,0,0.35)',
               textAlign: 'center',
               lineHeight: 1.5,
             }}>
@@ -475,11 +478,11 @@ const actionBtnStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 4,
   background: 'none',
-  border: '1px solid #2a2a3a',
+  border: '1px solid rgba(0,0,0,0.1)',
   borderRadius: 6,
   padding: '6px 10px',
   fontSize: 11,
-  color: '#888',
+  color: 'rgba(0,0,0,0.5)',
   cursor: 'pointer',
 };
 
@@ -494,10 +497,10 @@ function DetailRow({ label, value, valueColor }: {
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '8px 0',
-      borderBottom: '1px solid #222233',
+      borderBottom: '1px solid rgba(0,0,0,0.06)',
     }}>
-      <span style={{ fontSize: 13, color: '#888' }}>{label}</span>
-      <span style={{ fontSize: 13, color: valueColor || '#fff', fontWeight: 500 }}>{value}</span>
+      <span style={{ fontSize: 13, color: 'rgba(0,0,0,0.45)' }}>{label}</span>
+      <span style={{ fontSize: 13, color: valueColor || '#1d1d1f', fontWeight: 500 }}>{value}</span>
     </div>
   );
 }

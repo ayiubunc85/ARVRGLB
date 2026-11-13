@@ -71,7 +71,7 @@ export default function UsdzPanel({ modelId, onConverted }: UsdzPanelProps) {
   return (
     <div style={{
       width: '100%',
-      background: '#111119',
+      background: '#f5f5f7',
       borderRadius: 8,
       padding: 16,
     }}>
@@ -81,7 +81,7 @@ export default function UsdzPanel({ modelId, onConverted }: UsdzPanelProps) {
         justifyContent: 'space-between',
         marginBottom: hasUsdz ? 8 : 12,
       }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f' }}>
           iOS AR (USDZ)
         </span>
         {hasUsdz && (
@@ -94,7 +94,7 @@ export default function UsdzPanel({ modelId, onConverted }: UsdzPanelProps) {
       {hasUsdz && usdzSizeMB && (
         <div style={{
           fontSize: 12,
-          color: '#888',
+          color: 'rgba(0,0,0,0.45)',
           marginBottom: 10,
         }}>
           USDZ file: {usdzSizeMB} MB
@@ -107,8 +107,8 @@ export default function UsdzPanel({ modelId, onConverted }: UsdzPanelProps) {
         style={{
           width: '100%',
           padding: '10px 0',
-          background: converting ? '#2a2a3a' : hasUsdz ? '#2a2a3a' : '#4361ee',
-          color: '#fff',
+          background: converting ? 'rgba(0,0,0,0.08)' : hasUsdz ? 'rgba(0,0,0,0.08)' : '#4361ee',
+          color: converting ? 'rgba(0,0,0,0.4)' : hasUsdz ? '#1d1d1f' : '#fff',
           border: 'none',
           borderRadius: 8,
           fontSize: 13,
@@ -123,7 +123,7 @@ export default function UsdzPanel({ modelId, onConverted }: UsdzPanelProps) {
         <div style={{
           marginTop: 10,
           padding: 10,
-          background: 'rgba(239, 68, 68, 0.1)',
+          background: 'rgba(239, 68, 68, 0.08)',
           borderRadius: 6,
           fontSize: 12,
           color: '#ef4444',

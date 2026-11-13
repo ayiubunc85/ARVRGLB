@@ -96,7 +96,7 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
   return (
     <div style={{
       width: '100%',
-      background: '#111119',
+      background: '#f5f5f7',
       borderRadius: 8,
       padding: 16,
     }}>
@@ -106,7 +106,7 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
         justifyContent: 'space-between',
         marginBottom: 12,
       }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f' }}>
           Optimize
         </span>
         <button
@@ -134,7 +134,7 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
           <Row
             label="Draco"
             value={analysis.hasDraco ? 'Yes' : 'No'}
-            valueColor={analysis.hasDraco ? '#22c55e' : '#888'}
+            valueColor={analysis.hasDraco ? '#22c55e' : 'rgba(0,0,0,0.4)'}
           />
         </div>
       )}
@@ -188,8 +188,8 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
         style={{
           width: '100%',
           padding: '10px 0',
-          background: optimizing ? '#2a2a3a' : '#4361ee',
-          color: '#fff',
+          background: optimizing ? 'rgba(0,0,0,0.08)' : '#4361ee',
+          color: optimizing ? 'rgba(0,0,0,0.4)' : '#fff',
           border: 'none',
           borderRadius: 8,
           fontSize: 13,
@@ -204,7 +204,7 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
         <div style={{
           marginTop: 10,
           padding: 10,
-          background: 'rgba(34, 197, 94, 0.1)',
+          background: 'rgba(34, 197, 94, 0.08)',
           borderRadius: 6,
           fontSize: 12,
           color: '#22c55e',
@@ -218,7 +218,7 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
         <div style={{
           marginTop: 10,
           padding: 10,
-          background: 'rgba(239, 68, 68, 0.1)',
+          background: 'rgba(239, 68, 68, 0.08)',
           borderRadius: 6,
           fontSize: 12,
           color: '#ef4444',
@@ -233,7 +233,7 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
 
 const labelStyle: React.CSSProperties = {
   fontSize: 12,
-  color: '#aaa',
+  color: 'rgba(0,0,0,0.55)',
   display: 'flex',
   alignItems: 'center',
   gap: 6,
@@ -252,8 +252,8 @@ function Row({ label, value, valueColor }: { label: string; value: string; value
       padding: '4px 0',
       fontSize: 12,
     }}>
-      <span style={{ color: '#666' }}>{label}</span>
-      <span style={{ color: valueColor || '#ccc' }}>{value}</span>
+      <span style={{ color: 'rgba(0,0,0,0.4)' }}>{label}</span>
+      <span style={{ color: valueColor || '#1d1d1f' }}>{value}</span>
     </div>
   );
 }

@@ -28,12 +28,13 @@ export default function ServerStatus({ serverInfo, error }: ServerStatusProps) {
 
   return (
     <div style={{
-      background: '#1a1a24',
+      background: '#fff',
       borderRadius: 12,
       padding: 20,
       display: 'flex',
       alignItems: 'center',
       gap: 16,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
     }}>
       <div style={{
         width: 10,
@@ -48,7 +49,7 @@ export default function ServerStatus({ serverInfo, error }: ServerStatusProps) {
       {serverInfo ? (
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14, color: '#fff' }}>
+            <span style={{ fontSize: 14, color: '#1d1d1f' }}>
               Server running at{' '}
               <code style={{ color: '#4361ee' }}>{serverInfo.url}</code>
             </span>
@@ -56,8 +57,8 @@ export default function ServerStatus({ serverInfo, error }: ServerStatusProps) {
               fontSize: 11,
               color: serverInfo.networkMode === 'offline' ? '#f59e0b' : '#22c55e',
               background: serverInfo.networkMode === 'offline'
-                ? 'rgba(245, 158, 11, 0.1)'
-                : 'rgba(34, 197, 94, 0.1)',
+                ? 'rgba(245, 158, 11, 0.08)'
+                : 'rgba(34, 197, 94, 0.08)',
               padding: '2px 8px',
               borderRadius: 6,
               whiteSpace: 'nowrap',
@@ -65,7 +66,7 @@ export default function ServerStatus({ serverInfo, error }: ServerStatusProps) {
               {networkLabel[serverInfo.networkMode] || serverInfo.networkMode}
             </span>
           </div>
-          <p style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+          <p style={{ fontSize: 12, color: 'rgba(0,0,0,0.4)', marginTop: 4 }}>
             {networkHint[serverInfo.networkMode] || ''}
           </p>
         </div>
