@@ -38,6 +38,12 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [modelData, setModelData] = useState<{
+    vertices: number; triangles: number; materials: number;
+    textures: { name: string; mimeType: string; sizeKB: number }[];
+    meshes: number; hasDraco: boolean;
+  } | null>(null);
+  const [modelDataLoading, setModelDataLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
 
@@ -122,6 +128,15 @@ export default function App() {
   const openModel = useCallback((id: string) => {
     setSelectedId(id);
     setView('detail');
+    setModelData(null);
+    setModelDataLoading(true);
+    fetch(`${API_BASE}/api/models/${id}/analyze`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.error) setModelData(data);
+      })
+      .catch(() => {})
+      .finally(() => setModelDataLoading(false));
   }, []);
 
   const goBack = useCallback(() => {
@@ -456,6 +471,7 @@ export default function App() {
                     <ModelPreview
                       src={`${API_BASE}/models/${selectedModel.filename}`}
                       style={{ width: '100%', height: '100%' }}
+                      disableFilter
                     />
                   </div>
                   <div style={{
@@ -482,6 +498,27 @@ export default function App() {
                       label="Status"
                       value={parseFloat(selectedModel.sizeMB) > 25 ? 'Large — slow on mobile' : 'Ready for AR'}
                     />
+                  </div>
+
+                  <div style={detailCardStyle}>
+                    <h3 style={sectionHeaderStyle}>Model Data</h3>
+                    {modelDataLoading ? (
+                      <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.3)', padding: '8px 0' }}>Analyzing...</div>
+                    ) : modelData ? (
+                      <>
+                        <DetailRow label="Vertices" value={modelData.vertices.toLocaleString()} />
+                        <DetailRow label="Triangles" value={modelData.triangles.toLocaleString()} />
+                        <DetailRow label="Materials" value={String(modelData.materials)} />
+                        <DetailRow label="Meshes" value={String(modelData.meshes)} />
+                        <DetailRow label="Textures" value={String(modelData.textures.length)} />
+                        {modelData.textures.length > 0 && modelData.textures.slice(0, 4).map((t, i) => (
+                          <DetailRow key={i} label={`  ${t.name || `Texture ${i + 1}`}`} value={`${t.sizeKB} KB · ${t.mimeType.split('/')[1]?.toUpperCase() || t.mimeType}`} />
+                        ))}
+                        <DetailRow label="Draco Compressed" value={modelData.hasDraco ? 'Yes' : 'No'} />
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.25)', padding: '8px 0' }}>Analysis unavailable</div>
+                    )}
                   </div>
 
                   <div style={{ ...detailCardStyle, textAlign: 'center' }}>

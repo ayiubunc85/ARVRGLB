@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 interface ModelPreviewProps {
   src: string;
   style?: React.CSSProperties;
+  disableFilter?: boolean;
 }
 
 function filterOversizedMesh(buf: ArrayBuffer): string | null {
@@ -44,7 +45,7 @@ function filterOversizedMesh(buf: ArrayBuffer): string | null {
 
     if (boxes.length < 2) return null;
     boxes.sort((a, b) => a.maxDim - b.maxDim);
-    if (boxes[boxes.length - 1].maxDim <= boxes[0].maxDim * 5) return null;
+    if (boxes[boxes.length - 1].maxDim <= boxes[0].maxDim * 50) return null;
 
     const excludeNi = boxes[boxes.length - 1].ni;
     const g2 = JSON.parse(jsonStr);
@@ -82,7 +83,7 @@ function filterOversizedMesh(buf: ArrayBuffer): string | null {
   }
 }
 
-export default function ModelPreview({ src, style }: ModelPreviewProps) {
+export default function ModelPreview({ src, style, disableFilter }: ModelPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [previewSrc, setPreviewSrc] = useState(src);
   const blobUrlRef = useRef<string | null>(null);
@@ -97,7 +98,7 @@ export default function ModelPreview({ src, style }: ModelPreviewProps) {
       blobUrlRef.current = null;
     }
 
-    if (!src.endsWith('.glb')) {
+    if (!src.endsWith('.glb') || disableFilter) {
       setPreviewSrc(src);
       return;
     }
@@ -118,7 +119,7 @@ export default function ModelPreview({ src, style }: ModelPreviewProps) {
       .catch(() => { if (!cancelled) setPreviewSrc(src); });
 
     return () => { cancelled = true; };
-  }, [src]);
+  }, [src, disableFilter]);
 
   useEffect(() => {
     return () => {
