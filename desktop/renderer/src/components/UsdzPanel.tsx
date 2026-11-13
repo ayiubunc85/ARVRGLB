@@ -69,35 +69,16 @@ export default function UsdzPanel({ modelId, onConverted }: UsdzPanelProps) {
   }, [modelId, checkUsdz, onConverted]);
 
   return (
-    <div style={{
-      width: '100%',
-      background: '#f5f5f7',
-      borderRadius: 8,
-      padding: 16,
-    }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: hasUsdz ? 8 : 12,
-      }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f' }}>
-          iOS AR (USDZ)
-        </span>
-        {hasUsdz && (
-          <span style={{ fontSize: 11, color: '#22c55e' }}>
-            Ready
-          </span>
-        )}
-      </div>
-
-      {hasUsdz && usdzSizeMB && (
+    <div>
+      {hasUsdz && (
         <div style={{
-          fontSize: 12,
-          color: 'rgba(0,0,0,0.45)',
-          marginBottom: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: 10, fontSize: 12,
         }}>
-          USDZ file: {usdzSizeMB} MB
+          <span style={{ color: 'rgba(0,0,0,0.45)' }}>
+            USDZ file: {usdzSizeMB || '—'} MB
+          </span>
+          <span style={{ color: 'rgba(0,0,0,0.5)', fontWeight: 500 }}>Ready</span>
         </div>
       )}
 
@@ -105,15 +86,20 @@ export default function UsdzPanel({ modelId, onConverted }: UsdzPanelProps) {
         onClick={convert}
         disabled={converting}
         style={{
-          width: '100%',
-          padding: '10px 0',
-          background: converting ? 'rgba(0,0,0,0.08)' : hasUsdz ? 'rgba(0,0,0,0.08)' : '#4361ee',
-          color: converting ? 'rgba(0,0,0,0.4)' : hasUsdz ? '#1d1d1f' : '#fff',
-          border: 'none',
-          borderRadius: 8,
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: converting ? 'default' : 'pointer',
+          width: '100%', padding: '11px 0', borderRadius: 10,
+          fontSize: 13, fontWeight: 600, cursor: converting ? 'default' : 'pointer',
+          color: converting ? 'rgba(0,0,0,0.4)' : hasUsdz ? 'rgba(0,0,0,0.5)' : '#fff',
+          background: converting
+            ? 'rgba(0,0,0,0.06)'
+            : hasUsdz
+              ? 'linear-gradient(135deg, rgba(255,255,255,0.5), rgba(255,255,255,0.25))'
+              : 'linear-gradient(135deg, #111, #333)',
+          border: hasUsdz && !converting ? '1px solid rgba(0,0,0,0.06)' : 'none',
+          boxShadow: converting
+            ? 'none'
+            : hasUsdz
+              ? '0 2px 6px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.6)'
+              : '0 4px 16px rgba(0,0,0,0.15), 0 1px 0 rgba(255,255,255,0.04) inset',
         }}
       >
         {converting ? progress : hasUsdz ? 'Reconvert USDZ' : 'Convert to USDZ'}
@@ -121,13 +107,10 @@ export default function UsdzPanel({ modelId, onConverted }: UsdzPanelProps) {
 
       {error && (
         <div style={{
-          marginTop: 10,
-          padding: 10,
-          background: 'rgba(239, 68, 68, 0.08)',
-          borderRadius: 6,
-          fontSize: 12,
-          color: '#ef4444',
-          textAlign: 'center',
+          marginTop: 10, padding: 10, borderRadius: 8,
+          fontSize: 12, textAlign: 'center',
+          background: 'rgba(200,0,0,0.06)', color: 'rgba(200,0,0,0.7)',
+          border: '1px solid rgba(200,0,0,0.08)',
         }}>
           {error}
         </div>

@@ -7,7 +7,6 @@ interface QRCodeProps {
 }
 
 export default function QRCode({ url, size = 200, label }: QRCodeProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -18,7 +17,7 @@ export default function QRCode({ url, size = 200, label }: QRCodeProps) {
       qr.toDataURL(url, {
         width: size,
         margin: 2,
-        color: { dark: '#1d1d1fff', light: '#00000000' },
+        color: { dark: '#111111ff', light: '#00000000' },
         errorCorrectionLevel: 'M',
       }).then((dataUrl: string) => {
         setDataUrl(dataUrl);
@@ -27,21 +26,13 @@ export default function QRCode({ url, size = 200, label }: QRCodeProps) {
   }, [url, size]);
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: 12,
-    }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
       <div style={{
-        width: size,
-        height: size,
-        background: '#f5f5f7',
-        borderRadius: 12,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        border: '1px solid rgba(0,0,0,0.06)',
+        width: size, height: size, borderRadius: 12,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(135deg, rgba(0,0,0,0.03), rgba(0,0,0,0.06))',
+        border: '1px solid rgba(0,0,0,0.04)',
+        boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.04)',
       }}>
         {dataUrl ? (
           <img
@@ -52,32 +43,27 @@ export default function QRCode({ url, size = 200, label }: QRCodeProps) {
             style={{ imageRendering: 'pixelated' }}
           />
         ) : (
-          <span style={{ color: 'rgba(0,0,0,0.3)', fontSize: 13 }}>Generating…</span>
+          <span style={{ color: 'rgba(0,0,0,0.25)', fontSize: 13 }}>Generating...</span>
         )}
       </div>
 
       {label && (
-        <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.4)', textAlign: 'center', maxWidth: size }}>
+        <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.3)', textAlign: 'center', maxWidth: size }}>
           {label}
         </span>
       )}
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          onClick={() => navigator.clipboard.writeText(url)}
-          style={{
-            background: '#f0f0f2',
-            color: '#1d1d1f',
-            border: 'none',
-            borderRadius: 8,
-            padding: '6px 14px',
-            fontSize: 12,
-            cursor: 'pointer',
-          }}
-        >
-          Copy link
-        </button>
-      </div>
+      <button
+        onClick={() => navigator.clipboard.writeText(url)}
+        style={{
+          color: '#fff', border: 'none', borderRadius: 8,
+          padding: '8px 18px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          background: 'linear-gradient(135deg, #111, #333)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+        }}
+      >
+        Copy AR link
+      </button>
     </div>
   );
 }

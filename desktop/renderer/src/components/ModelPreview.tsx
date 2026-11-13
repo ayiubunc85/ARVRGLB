@@ -145,7 +145,7 @@ export default function ModelPreview({ src, style }: ModelPreviewProps) {
           height: '100%',
           background: 'transparent',
           '--poster-color': 'transparent',
-          '--progress-bar-color': '#4361ee',
+          '--progress-bar-color': '#333',
         } as React.CSSProperties}
       />
     </div>

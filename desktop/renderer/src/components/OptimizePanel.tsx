@@ -94,31 +94,19 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
   }, [modelId, draco, textureSize, quality, onOptimized]);
 
   return (
-    <div style={{
-      width: '100%',
-      background: '#f5f5f7',
-      borderRadius: 8,
-      padding: 16,
-    }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 12,
-      }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f' }}>
-          Optimize
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <span style={{ fontSize: 12, color: 'rgba(0,0,0,0.5)' }}>
+          Current size: {sizeMB} MB
         </span>
         <button
           onClick={analyze}
           disabled={analyzing}
           style={{
-            fontSize: 11,
-            color: '#4361ee',
-            background: 'none',
-            border: 'none',
+            fontSize: 11, fontWeight: 500,
+            color: analyzing ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.5)',
+            background: 'none', border: 'none',
             cursor: analyzing ? 'default' : 'pointer',
-            opacity: analyzing ? 0.5 : 1,
           }}
         >
           {analyzing ? 'Analyzing...' : 'Analyze'}
@@ -131,54 +119,30 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
           <Row label="Triangles" value={analysis.triangles.toLocaleString()} />
           <Row label="Materials" value={String(analysis.materials)} />
           <Row label="Textures" value={String(analysis.textures.length)} />
-          <Row
-            label="Draco"
-            value={analysis.hasDraco ? 'Yes' : 'No'}
-            valueColor={analysis.hasDraco ? '#22c55e' : 'rgba(0,0,0,0.4)'}
-          />
+          <Row label="Draco" value={analysis.hasDraco ? 'Yes' : 'No'} />
         </div>
       )}
 
-      {/* Options */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
         <label style={labelStyle}>
-          <input
-            type="checkbox"
-            checked={draco}
-            onChange={e => setDraco(e.target.checked)}
-            style={checkboxStyle}
-          />
+          <input type="checkbox" checked={draco} onChange={e => setDraco(e.target.checked)} />
           Draco compression
         </label>
-
         <div>
           <span style={{ ...labelStyle, display: 'block', marginBottom: 4 }}>
             Max texture: {textureSize}px
           </span>
-          <input
-            type="range"
-            min={512}
-            max={2048}
-            step={512}
-            value={textureSize}
+          <input type="range" min={512} max={2048} step={512} value={textureSize}
             onChange={e => setTextureSize(Number(e.target.value))}
-            style={{ width: '100%', accentColor: '#4361ee' }}
-          />
+            style={{ width: '100%' }} />
         </div>
-
         <div>
           <span style={{ ...labelStyle, display: 'block', marginBottom: 4 }}>
             JPEG quality: {quality}%
           </span>
-          <input
-            type="range"
-            min={50}
-            max={95}
-            step={5}
-            value={quality}
+          <input type="range" min={50} max={95} step={5} value={quality}
             onChange={e => setQuality(Number(e.target.value))}
-            style={{ width: '100%', accentColor: '#4361ee' }}
-          />
+            style={{ width: '100%' }} />
         </div>
       </div>
 
@@ -186,15 +150,11 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
         onClick={optimize}
         disabled={optimizing}
         style={{
-          width: '100%',
-          padding: '10px 0',
-          background: optimizing ? 'rgba(0,0,0,0.08)' : '#4361ee',
+          width: '100%', padding: '11px 0', border: 'none', borderRadius: 10,
+          fontSize: 13, fontWeight: 700, cursor: optimizing ? 'default' : 'pointer',
           color: optimizing ? 'rgba(0,0,0,0.4)' : '#fff',
-          border: 'none',
-          borderRadius: 8,
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: optimizing ? 'default' : 'pointer',
+          background: optimizing ? 'rgba(0,0,0,0.06)' : 'linear-gradient(135deg, #111, #333)',
+          boxShadow: optimizing ? 'none' : '0 4px 16px rgba(0,0,0,0.15), 0 1px 0 rgba(255,255,255,0.04) inset',
         }}
       >
         {optimizing ? progress : 'Optimize Model'}
@@ -202,13 +162,10 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
 
       {result && (
         <div style={{
-          marginTop: 10,
-          padding: 10,
-          background: 'rgba(34, 197, 94, 0.08)',
-          borderRadius: 6,
-          fontSize: 12,
-          color: '#22c55e',
-          textAlign: 'center',
+          marginTop: 10, padding: 10, borderRadius: 8,
+          fontSize: 12, textAlign: 'center',
+          background: 'rgba(0,0,0,0.04)', color: 'rgba(0,0,0,0.6)',
+          border: '1px solid rgba(0,0,0,0.04)',
         }}>
           {result.beforeMB} MB → {result.afterMB} MB ({result.reductionPercent}% smaller)
         </div>
@@ -216,13 +173,10 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
 
       {error && (
         <div style={{
-          marginTop: 10,
-          padding: 10,
-          background: 'rgba(239, 68, 68, 0.08)',
-          borderRadius: 6,
-          fontSize: 12,
-          color: '#ef4444',
-          textAlign: 'center',
+          marginTop: 10, padding: 10, borderRadius: 8,
+          fontSize: 12, textAlign: 'center',
+          background: 'rgba(200,0,0,0.06)', color: 'rgba(200,0,0,0.7)',
+          border: '1px solid rgba(200,0,0,0.08)',
         }}>
           {error}
         </div>
@@ -232,28 +186,18 @@ export default function OptimizePanel({ modelId, sizeMB, onOptimized }: Optimize
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: 'rgba(0,0,0,0.55)',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  cursor: 'pointer',
+  fontSize: 12, color: 'rgba(0,0,0,0.45)',
+  display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
 };
 
-const checkboxStyle: React.CSSProperties = {
-  accentColor: '#4361ee',
-};
-
-function Row({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+function Row({ label, value }: { label: string; value: string }) {
   return (
     <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      padding: '4px 0',
-      fontSize: 12,
+      display: 'flex', justifyContent: 'space-between',
+      padding: '6px 0', fontSize: 12, borderBottom: '1px solid rgba(0,0,0,0.04)',
     }}>
-      <span style={{ color: 'rgba(0,0,0,0.4)' }}>{label}</span>
-      <span style={{ color: valueColor || '#1d1d1f' }}>{value}</span>
+      <span style={{ color: 'rgba(0,0,0,0.35)' }}>{label}</span>
+      <span style={{ fontWeight: 500, color: 'rgba(0,0,0,0.65)' }}>{value}</span>
     </div>
   );
 }
