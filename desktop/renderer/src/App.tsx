@@ -157,7 +157,7 @@ export default function App() {
 
   return (
     <div
-      style={{ height: '100vh', display: 'flex', overflow: 'hidden', position: 'relative' }}
+      style={{ height: '100vh', width: '100%', display: 'flex', overflow: 'hidden', position: 'relative' }}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -304,7 +304,7 @@ export default function App() {
             </div>
 
             <div style={{ flex: 1, overflow: 'auto', padding: '20px 32px 32px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
                 <StatCard label="3D Models" value={String(models.length)} sub="All formats" gradient />
                 <StatCard label="Total Size" value={`${stats.totalSize} MB`} sub="Combined assets" />
                 <StatCard label="AR Ready" value={`${stats.arReady}/${models.length}`} sub={models.length > 0 ? `${Math.round((stats.arReady / models.length) * 100)}% coverage` : 'No models'} />
@@ -325,14 +325,14 @@ export default function App() {
                   </p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16, marginBottom: 28 }}>
                   {models.map(model => (
                     <ModelCard key={model.id} model={model} onSelect={openModel} />
                   ))}
                 </div>
               )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
                 <div style={bottomCardStyle}>
                   <h3 style={sectionHeaderStyle}>Recent Activity</h3>
                   {models.length === 0 ? (
@@ -447,10 +447,10 @@ export default function App() {
             )}
 
             {selectedModel && (
-              <div style={{ flex: 1, overflow: 'auto', padding: '0 32px 32px', display: 'flex', gap: 24 }}>
+              <div style={{ flex: 1, overflow: 'hidden', padding: '0 32px 32px', display: 'flex', gap: 24, minHeight: 0 }}>
                 <div style={viewerPanelStyle}>
                   <div style={{
-                    flex: 1, minHeight: 400, position: 'relative',
+                    flex: 1, minHeight: 0, position: 'relative',
                     background: 'linear-gradient(145deg, rgba(0,0,0,0.02), rgba(0,0,0,0.06))',
                   }}>
                     <ModelPreview
@@ -473,7 +473,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'auto' }}>
+                <div style={{ width: 300, minWidth: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'auto' }}>
                   <div style={detailCardStyle}>
                     <h3 style={sectionHeaderStyle}>Model Info</h3>
                     <DetailRow label="Format" value={selectedModel.format.toUpperCase()} />
@@ -646,7 +646,7 @@ const actionBtnStyle: React.CSSProperties = {
 };
 
 const viewerPanelStyle: React.CSSProperties = {
-  flex: 1, borderRadius: 16, overflow: 'hidden',
+  flex: 1, minWidth: 0, borderRadius: 16, overflow: 'hidden',
   display: 'flex', flexDirection: 'column', minHeight: 0,
   background: 'linear-gradient(145deg, rgba(255,255,255,0.7), rgba(255,255,255,0.35))',
   border: '1px solid rgba(0,0,0,0.05)',
