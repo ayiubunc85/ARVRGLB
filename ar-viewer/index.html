@@ -1185,14 +1185,14 @@
             if (!mat.isMeshPhysicalMaterial) return;
             const isGlass = (mat.name && /glass/i.test(mat.name)) || mat.transmission > 0.1;
             if (isGlass) {
-              mat.transmission = Math.max(mat.transmission || 0, 0.9);
-              mat.thickness = mat.thickness || 0.02;
-              mat.ior = mat.ior || 1.5;
-              mat.roughness = Math.min(mat.roughness, 0.05);
+              mat.transmission = Math.max(mat.transmission || 0, 0.8);
+              mat.thickness = mat.thickness || 0.5;
+              mat.ior = mat.ior || 1.6;
+              mat.roughness = 0;
               mat.metalness = 0;
               mat.envMapIntensity = 1.5;
               mat.clearcoat = 0.3;
-              mat.clearcoatRoughness = 0.1;
+              mat.clearcoatRoughness = 0.05;
               mat.transparent = false;
               mat.depthWrite = true;
               mat.side = THREE.DoubleSide;
