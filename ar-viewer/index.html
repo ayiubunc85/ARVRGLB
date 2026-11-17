@@ -635,6 +635,7 @@
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
     const overlay = document.getElementById('arOverlay');
     const guideText = document.getElementById('arGuideText');
@@ -692,7 +693,7 @@
       const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
       dirLight.position.set(0.5, 1.5, 0.5);
       dirLight.castShadow = true;
-      dirLight.shadow.mapSize.setScalar(512);
+      dirLight.shadow.mapSize.setScalar(1024);
       dirLight.shadow.camera.near = 0.1;
       dirLight.shadow.camera.far = 10;
       dirLight.shadow.camera.left = -2;
@@ -704,10 +705,12 @@
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.VSMShadowMap;
 
-      // Neutral environment map for PBR reflections
+      // Studio environment map for PBR reflections (walls + lights for glass realism)
       const pmremGen = new THREE.PMREMGenerator(renderer);
       pmremGen.compileEquirectangularShader();
-      const neutralEnv = pmremGen.fromScene(new THREE.Scene()).texture;
+      const roomEnv = new RoomEnvironment();
+      const neutralEnv = pmremGen.fromScene(roomEnv).texture;
+      roomEnv.dispose();
       scene.environment = neutralEnv;
 
       // Ground shadow plane (invisible except shadow)
@@ -1174,6 +1177,31 @@
         if (enableShadows) {
           model.traverse(child => { if (child.isMesh) child.castShadow = true; });
         }
+        // Enhance glass materials for realism
+        model.traverse(child => {
+          if (!child.isMesh) return;
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(mat => {
+            if (!mat.isMeshPhysicalMaterial) return;
+            const isGlass = (mat.name && /glass/i.test(mat.name)) || mat.transmission > 0.1;
+            if (isGlass) {
+              mat.transmission = Math.max(mat.transmission || 0, 0.9);
+              mat.thickness = mat.thickness || 0.02;
+              mat.ior = mat.ior || 1.5;
+              mat.roughness = Math.min(mat.roughness, 0.05);
+              mat.metalness = 0;
+              mat.envMapIntensity = 1.5;
+              mat.clearcoat = 0.3;
+              mat.clearcoatRoughness = 0.1;
+              mat.transparent = false;
+              mat.depthWrite = true;
+              mat.side = THREE.DoubleSide;
+              mat.needsUpdate = true;
+            } else {
+              mat.envMapIntensity = Math.max(mat.envMapIntensity || 1, 1.0);
+            }
+          });
+        });
         modelGroup.add(fittedWrapper);
         modelLoaded = true;
         guideText.textContent = reticle.visible ? 'Tap to place model here' : 'Point at floor, tap to place';
