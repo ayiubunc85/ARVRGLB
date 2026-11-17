@@ -481,7 +481,7 @@ export default function App() {
               <div style={{ flex: 1, overflow: 'hidden', padding: '0 32px 32px', display: 'flex', gap: 24, minHeight: 0 }}>
                 <div style={viewerPanelStyle}>
                   <div style={{
-                    flex: 1, minHeight: 0, position: 'relative',
+                    flex: 1, minHeight: 0,
                     background: 'linear-gradient(145deg, rgba(0,0,0,0.02), rgba(0,0,0,0.06))',
                   }}>
                     <ModelPreview
@@ -493,37 +493,37 @@ export default function App() {
                       shadowSoftness={lightSoftness}
                       environmentImage={lightEnv}
                     />
-                    {showLightPanel && (
-                      <div style={{
-                        position: 'absolute', bottom: 60, left: 16, right: 16,
-                        background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(20px)',
-                        borderRadius: 14, padding: '14px 16px',
-                        display: 'flex', flexDirection: 'column', gap: 10,
-                        zIndex: 5,
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 0.6 }}>Lighting</span>
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            {(['neutral', 'legacy'] as const).map(env => (
-                              <button key={env} onClick={() => setLightEnv(env)} style={{
-                                padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                                fontSize: 11, fontWeight: 500,
-                                background: lightEnv === env ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)',
-                                color: lightEnv === env ? '#fff' : 'rgba(255,255,255,0.5)',
-                              }}>{env === 'neutral' ? 'Neutral' : 'Studio'}</button>
-                            ))}
-                          </div>
-                        </div>
-                        <LightSlider label="Exposure" value={lightExposure} min={0.2} max={3} step={0.1} onChange={setLightExposure} />
-                        <LightSlider label="Shadow" value={lightShadow} min={0} max={2} step={0.1} onChange={setLightShadow} />
-                        <LightSlider label="Softness" value={lightSoftness} min={0} max={1} step={0.05} onChange={setLightSoftness} />
-                        <button onClick={() => { setLightExposure(1); setLightShadow(0.4); setLightSoftness(0.5); setLightEnv('neutral'); }} style={{
-                          padding: '5px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
-                          fontSize: 11, fontWeight: 600, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)',
-                        }}>Reset</button>
-                      </div>
-                    )}
                   </div>
+                  {showLightPanel && (
+                    <div style={{
+                      padding: '12px 16px',
+                      borderTop: '1px solid rgba(0,0,0,0.04)',
+                      background: 'linear-gradient(135deg, rgba(240,240,240,0.85), rgba(230,230,230,0.7))',
+                      backdropFilter: 'blur(20px)',
+                      display: 'flex', flexDirection: 'column', gap: 8,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(0,0,0,0.4)', textTransform: 'uppercase', letterSpacing: 0.6 }}>Lighting</span>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {(['neutral', 'legacy'] as const).map(env => (
+                            <button key={env} onClick={() => setLightEnv(env)} style={{
+                              padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                              fontSize: 11, fontWeight: 500,
+                              background: lightEnv === env ? 'rgba(0,0,0,0.08)' : 'transparent',
+                              color: lightEnv === env ? '#111' : 'rgba(0,0,0,0.35)',
+                            }}>{env === 'neutral' ? 'Neutral' : 'Studio'}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <LightSlider label="Exposure" value={lightExposure} min={0.2} max={3} step={0.1} onChange={setLightExposure} />
+                      <LightSlider label="Shadow" value={lightShadow} min={0} max={2} step={0.1} onChange={setLightShadow} />
+                      <LightSlider label="Softness" value={lightSoftness} min={0} max={1} step={0.05} onChange={setLightSoftness} />
+                      <button onClick={() => { setLightExposure(1); setLightShadow(0.4); setLightSoftness(0.5); setLightEnv('neutral'); }} style={{
+                        padding: '4px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
+                        fontSize: 11, fontWeight: 600, background: 'rgba(0,0,0,0.04)', color: 'rgba(0,0,0,0.35)',
+                      }}>Reset</button>
+                    </div>
+                  )}
                   <div style={{
                     padding: '16px 20px',
                     borderTop: '1px solid rgba(0,0,0,0.04)',
@@ -782,12 +782,12 @@ function LightSlider({ label, value, min, max, step, onChange }: {
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', minWidth: 48 }}>{label}</span>
+      <span style={{ fontSize: 10, color: 'rgba(0,0,0,0.35)', minWidth: 48 }}>{label}</span>
       <input type="range" min={min} max={max} step={step} value={value}
         onChange={e => onChange(parseFloat(e.target.value))}
-        style={{ flex: 1, height: 3, accentColor: '#888' }}
+        style={{ flex: 1, height: 3, accentColor: '#999' }}
       />
-      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', minWidth: 28, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+      <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', minWidth: 28, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
         {value.toFixed(1)}
       </span>
     </div>
