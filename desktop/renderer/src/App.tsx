@@ -43,7 +43,7 @@ export default function App() {
   const [lightExposure, setLightExposure] = useState(1.0);
   const [lightShadow, setLightShadow] = useState(0.4);
   const [lightSoftness, setLightSoftness] = useState(0.5);
-  const [lightEnv, setLightEnv] = useState<'neutral' | 'legacy'>('neutral');
+  const [lightEnv, setLightEnv] = useState<'neutral' | 'legacy' | 'studio' | 'outdoor' | 'interior'>('neutral');
   const [showLightPanel, setShowLightPanel] = useState(false);
   const [modelData, setModelData] = useState<{
     vertices: number; triangles: number; materials: number;
@@ -549,21 +549,27 @@ export default function App() {
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(0,0,0,0.4)', textTransform: 'uppercase', letterSpacing: 0.6 }}>Lighting</span>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          {(['neutral', 'legacy'] as const).map(env => (
+                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                          {([
+                            ['neutral', 'Neutral'],
+                            ['legacy', 'Legacy'],
+                            ['studio', 'Studio'],
+                            ['outdoor', 'Outdoor'],
+                            ['interior', 'Interior'],
+                          ] as const).map(([env, label]) => (
                             <button key={env} onClick={() => setLightEnv(env)} style={{
-                              padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                              fontSize: 11, fontWeight: 500,
+                              padding: '4px 8px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                              fontSize: 10, fontWeight: 500,
                               background: lightEnv === env ? 'rgba(0,0,0,0.08)' : 'transparent',
                               color: lightEnv === env ? '#111' : 'rgba(0,0,0,0.35)',
-                            }}>{env === 'neutral' ? 'Neutral' : 'Studio'}</button>
+                            }}>{label}</button>
                           ))}
                         </div>
                       </div>
                       <LightSlider label="Exposure" value={lightExposure} min={0.2} max={3} step={0.1} onChange={setLightExposure} />
                       <LightSlider label="Shadow" value={lightShadow} min={0} max={2} step={0.1} onChange={setLightShadow} />
                       <LightSlider label="Softness" value={lightSoftness} min={0} max={1} step={0.05} onChange={setLightSoftness} />
-                      <button onClick={() => { setLightExposure(1); setLightShadow(0.4); setLightSoftness(0.5); setLightEnv('neutral'); }} style={{
+                      <button onClick={() => { setLightExposure(1.0); setLightShadow(0.4); setLightSoftness(0.5); setLightEnv('neutral'); }} style={{
                         padding: '4px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
                         fontSize: 11, fontWeight: 600, background: 'rgba(0,0,0,0.04)', color: 'rgba(0,0,0,0.35)',
                       }}>Reset</button>

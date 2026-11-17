@@ -87,7 +87,16 @@ function filterOversizedMesh(buf: ArrayBuffer): string | null {
   }
 }
 
+const ENV_MAP: Record<string, string> = {
+  neutral: 'neutral',
+  legacy: 'legacy',
+  studio: '/envmaps/studio.png',
+  outdoor: '/envmaps/outdoor.png',
+  interior: '/envmaps/interior.png',
+};
+
 export default function ModelPreview({ src, style, disableFilter, exposure = 1, shadowIntensity = 0.4, shadowSoftness = 0.5, environmentImage = 'neutral' }: ModelPreviewProps) {
+  const envSrc = ENV_MAP[environmentImage] || environmentImage;
   const containerRef = useRef<HTMLDivElement>(null);
   const [previewSrc, setPreviewSrc] = useState(src);
   const blobUrlRef = useRef<string | null>(null);
@@ -144,7 +153,7 @@ export default function ModelPreview({ src, style, disableFilter, exposure = 1, 
         shadow-intensity={String(shadowIntensity)}
         shadow-softness={String(shadowSoftness)}
         exposure={String(exposure)}
-        environment-image={environmentImage}
+        environment-image={envSrc}
         bounds="tight"
         style={{
           width: '100%',
