@@ -500,7 +500,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div style={{ width: 300, minWidth: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'auto' }}>
+                <div style={{ width: 300, minWidth: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: detailTab === 'info' ? 'space-between' : undefined, gap: detailTab === 'info' ? undefined : 16, overflow: 'auto' }}>
                   {detailTab === 'info' && (
                     <>
                       <div style={detailCardStyle}>
@@ -530,8 +530,6 @@ export default function App() {
                           <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.25)', padding: '8px 0' }}>Analysis unavailable</div>
                         )}
                       </div>
-
-                      <div style={{ flex: 1 }} />
 
                       <div style={{ ...detailCardStyle, textAlign: 'center' }}>
                         <h3 style={sectionHeaderStyle}>AR Quick Link</h3>
