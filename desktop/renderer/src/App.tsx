@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import ModelCard from './components/ModelCard';
 import ModelPreview from './components/ModelPreview';
 import QRCode from './components/QRCode';
@@ -510,10 +511,7 @@ export default function App() {
                         <DetailRow label="Triangles" value={modelData.triangles.toLocaleString()} />
                         <DetailRow label="Materials" value={String(modelData.materials)} />
                         <DetailRow label="Meshes" value={String(modelData.meshes)} />
-                        <DetailRow label="Textures" value={String(modelData.textures.length)} />
-                        {modelData.textures.length > 0 && modelData.textures.slice(0, 4).map((t, i) => (
-                          <DetailRow key={i} label={`  ${t.name || `Texture ${i + 1}`}`} value={`${t.sizeKB} KB · ${t.mimeType.split('/')[1]?.toUpperCase() || t.mimeType}`} />
-                        ))}
+                        <TextureRow count={modelData.textures.length} textures={modelData.textures} />
                         <DetailRow label="Draco Compressed" value={modelData.hasDraco ? 'Yes' : 'No'} />
                       </>
                     ) : (
@@ -611,6 +609,69 @@ function QuickBtn({ label, onClick }: { label: string; onClick: () => void }) {
       }}
     >
       {label}
+    </div>
+  );
+}
+
+function TextureRow({ count, textures }: { count: number; textures: { name: string; mimeType: string; sizeKB: number }[] }) {
+  const [hovered, setHovered] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (hovered && rowRef.current) {
+      const rect = rowRef.current.getBoundingClientRect();
+      setPos({ top: rect.top, left: rect.left - 276 });
+    }
+  }, [hovered]);
+
+  return (
+    <div
+      ref={rowRef}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.04)', fontSize: 13,
+        cursor: count > 0 ? 'pointer' : 'default',
+      }}>
+        <span style={{ color: 'rgba(0,0,0,0.35)' }}>Textures</span>
+        <span style={{ fontWeight: 500 }}>{count}</span>
+      </div>
+      {hovered && count > 0 && createPortal(
+        <div
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          style={{
+            position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000,
+            width: 264, padding: 14, borderRadius: 12,
+            background: 'linear-gradient(145deg, rgba(255,255,255,0.97), rgba(255,255,255,0.92))',
+            border: '1px solid rgba(0,0,0,0.08)',
+            backdropFilter: 'blur(24px)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8)',
+            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          }}
+        >
+          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'rgba(0,0,0,0.3)', marginBottom: 8 }}>
+            Texture Details
+          </div>
+          {textures.map((t, i) => (
+            <div key={i} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '5px 0', fontSize: 11, borderBottom: i < textures.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none',
+            }}>
+              <span style={{ color: 'rgba(0,0,0,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
+                {t.name || `Texture ${i + 1}`}
+              </span>
+              <span style={{ fontWeight: 500, color: 'rgba(0,0,0,0.6)', whiteSpace: 'nowrap', marginLeft: 8 }}>
+                {t.sizeKB} KB · {t.mimeType.split('/')[1]?.toUpperCase() || t.mimeType}
+              </span>
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
