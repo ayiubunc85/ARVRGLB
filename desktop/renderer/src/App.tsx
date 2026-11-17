@@ -43,8 +43,8 @@ export default function App() {
   const [lightExposure, setLightExposure] = useState(1.0);
   const [lightShadow, setLightShadow] = useState(0.4);
   const [lightSoftness, setLightSoftness] = useState(0.5);
-  const [lightEnv, setLightEnv] = useState<'neutral' | 'legacy' | 'studio_small' | 'studio_loft' | 'outdoor' | 'hotel_room' | 'brown_studio'>('neutral');
-  const [toneMapping, setToneMapping] = useState<'commerce' | 'neutral' | 'agx'>('commerce');
+  const [lightEnv, setLightEnv] = useState<'neutral' | 'legacy' | 'studio_small' | 'studio_loft' | 'outdoor' | 'hotel_room' | 'brown_studio'>('outdoor');
+  const [toneMapping, setToneMapping] = useState<'commerce' | 'neutral' | 'agx'>('agx');
   const [showSkybox, setShowSkybox] = useState(false);
   const [showLightPanel, setShowLightPanel] = useState(false);
   const [modelData, setModelData] = useState<{
@@ -606,7 +606,7 @@ export default function App() {
                       <LightSlider label="Exposure" value={lightExposure} min={0.2} max={3} step={0.1} onChange={setLightExposure} />
                       <LightSlider label="Shadow" value={lightShadow} min={0} max={2} step={0.1} onChange={setLightShadow} />
                       <LightSlider label="Softness" value={lightSoftness} min={0} max={1} step={0.05} onChange={setLightSoftness} />
-                      <button onClick={() => { setLightExposure(1.0); setLightShadow(0.4); setLightSoftness(0.5); setLightEnv('neutral'); setToneMapping('commerce'); setShowSkybox(false); }} style={{
+                      <button onClick={() => { setLightExposure(1.0); setLightShadow(0.4); setLightSoftness(0.5); setLightEnv('outdoor'); setToneMapping('agx'); setShowSkybox(false); }} style={{
                         padding: '4px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
                         fontSize: 11, fontWeight: 600, background: 'rgba(0,0,0,0.04)', color: 'rgba(0,0,0,0.35)',
                       }}>Reset</button>
