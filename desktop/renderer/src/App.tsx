@@ -39,6 +39,7 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [detailTab, setDetailTab] = useState<'info' | 'optimize' | 'usdz'>('info');
   const [modelData, setModelData] = useState<{
     vertices: number; triangles: number; materials: number;
     textures: { name: string; mimeType: string; sizeKB: number }[];
@@ -129,6 +130,7 @@ export default function App() {
   const openModel = useCallback((id: string) => {
     setSelectedId(id);
     setView('detail');
+    setDetailTab('info');
     setModelData(null);
     setModelDataLoading(true);
     fetch(`${API_BASE}/api/models/${id}/analyze`)
@@ -238,8 +240,16 @@ export default function App() {
         <nav style={{ padding: '12px 12px 8px' }}>
           <NavItem active={view === 'dashboard'} onClick={goBack} label="Dashboard"
             icon={<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>} />
-          <NavItem active={view === 'detail'} onClick={() => { if (models.length > 0) openModel(models[0].id); }} label="Models"
+          <NavItem active={view === 'detail' && detailTab === 'info'} onClick={() => { if (view === 'detail') setDetailTab('info'); else if (models.length > 0) openModel(models[0].id); }} label="Models"
             icon={<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>} />
+          {view === 'detail' && (
+            <>
+              <SubNavItem active={detailTab === 'optimize'} onClick={() => setDetailTab('optimize')} label="Optimization"
+                icon={<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>} />
+              <SubNavItem active={detailTab === 'usdz'} onClick={() => setDetailTab('usdz')} label="USDZ Convert"
+                icon={<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0110 10 10 10 0 01-10 10A10 10 0 012 12 10 10 0 0112 2z"/><path d="M2 12h20"/><path d="M12 2a15 15 0 014 10 15 15 0 01-4 10 15 15 0 01-4-10 15 15 0 014-10z"/></svg>} />
+            </>
+          )}
           <NavItem active={false} onClick={() => {}} label="AR Viewer"
             icon={<svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path d="M9 22V12h6v10"/></svg>} />
           <NavItem active={false} onClick={() => {}} label="Settings"
@@ -491,48 +501,60 @@ export default function App() {
                 </div>
 
                 <div style={{ width: 300, minWidth: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'auto' }}>
-                  <div style={detailCardStyle}>
-                    <h3 style={sectionHeaderStyle}>Model Info</h3>
-                    <DetailRow label="Format" value={selectedModel.format.toUpperCase()} />
-                    <DetailRow label="File size" value={`${selectedModel.sizeMB} MB`} />
-                    <DetailRow
-                      label="Status"
-                      value={parseFloat(selectedModel.sizeMB) > 25 ? 'Large — slow on mobile' : 'Ready for AR'}
-                    />
-                  </div>
+                  {detailTab === 'info' && (
+                    <>
+                      <div style={detailCardStyle}>
+                        <h3 style={sectionHeaderStyle}>Model Info</h3>
+                        <DetailRow label="Format" value={selectedModel.format.toUpperCase()} />
+                        <DetailRow label="File size" value={`${selectedModel.sizeMB} MB`} />
+                        <DetailRow
+                          label="Status"
+                          value={parseFloat(selectedModel.sizeMB) > 25 ? 'Large — slow on mobile' : 'Ready for AR'}
+                        />
+                      </div>
 
-                  <div style={detailCardStyle}>
-                    <h3 style={sectionHeaderStyle}>Model Data</h3>
-                    {modelDataLoading ? (
-                      <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.3)', padding: '8px 0' }}>Analyzing...</div>
-                    ) : modelData ? (
-                      <>
-                        <DetailRow label="Vertices" value={modelData.vertices.toLocaleString()} />
-                        <DetailRow label="Triangles" value={modelData.triangles.toLocaleString()} />
-                        <DetailRow label="Materials" value={String(modelData.materials)} />
-                        <DetailRow label="Meshes" value={String(modelData.meshes)} />
-                        <TextureRow count={modelData.textures.length} textures={modelData.textures} />
-                        <DetailRow label="Draco Compressed" value={modelData.hasDraco ? 'Yes' : 'No'} />
-                      </>
-                    ) : (
-                      <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.25)', padding: '8px 0' }}>Analysis unavailable</div>
-                    )}
-                  </div>
+                      <div style={detailCardStyle}>
+                        <h3 style={sectionHeaderStyle}>Model Data</h3>
+                        {modelDataLoading ? (
+                          <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.3)', padding: '8px 0' }}>Analyzing...</div>
+                        ) : modelData ? (
+                          <>
+                            <DetailRow label="Vertices" value={modelData.vertices.toLocaleString()} />
+                            <DetailRow label="Triangles" value={modelData.triangles.toLocaleString()} />
+                            <DetailRow label="Materials" value={String(modelData.materials)} />
+                            <DetailRow label="Meshes" value={String(modelData.meshes)} />
+                            <TextureRow count={modelData.textures.length} textures={modelData.textures} />
+                            <DetailRow label="Draco Compressed" value={modelData.hasDraco ? 'Yes' : 'No'} />
+                          </>
+                        ) : (
+                          <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.25)', padding: '8px 0' }}>Analysis unavailable</div>
+                        )}
+                      </div>
 
-                  <div style={{ ...detailCardStyle, textAlign: 'center' }}>
-                    <h3 style={sectionHeaderStyle}>AR Quick Link</h3>
-                    <QRCode url={selectedModel.arUrl} size={180} label="Scan to view in AR" />
-                  </div>
+                      <div style={{ ...detailCardStyle, textAlign: 'center' }}>
+                        <h3 style={sectionHeaderStyle}>AR Quick Link</h3>
+                        <QRCode url={selectedModel.arUrl} size={180} label="Scan to view in AR" />
+                      </div>
+                    </>
+                  )}
 
-                  <div style={detailCardStyle}>
-                    <h3 style={sectionHeaderStyle}>Optimization</h3>
-                    <OptimizePanel modelId={selectedModel.id} sizeMB={selectedModel.sizeMB} onOptimized={fetchData} />
-                  </div>
+                  {detailTab === 'optimize' && (
+                    <div style={detailCardStyle}>
+                      <h3 style={sectionHeaderStyle}>Optimization</h3>
+                      <OptimizePanel modelId={selectedModel.id} sizeMB={selectedModel.sizeMB} onOptimized={fetchData} />
+                    </div>
+                  )}
 
-                  {selectedModel.format === 'glb' && (
+                  {detailTab === 'usdz' && (
                     <div style={detailCardStyle}>
                       <h3 style={sectionHeaderStyle}>iOS AR (USDZ)</h3>
-                      <UsdzPanel modelId={selectedModel.id} onConverted={fetchData} />
+                      {selectedModel.format === 'glb' ? (
+                        <UsdzPanel modelId={selectedModel.id} onConverted={fetchData} />
+                      ) : (
+                        <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.3)', padding: '8px 0' }}>
+                          USDZ conversion is only available for GLB models.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -568,6 +590,35 @@ function NavItem({ active, onClick, icon, label }: {
       }}
     >
       <span style={{ width: 18, height: 18, display: 'flex', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' } as React.CSSProperties}>
+        {icon}
+      </span>
+      {label}
+    </div>
+  );
+}
+
+function SubNavItem({ active, onClick, icon, label }: {
+  active: boolean; onClick: () => void;
+  icon: React.ReactNode; label: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '7px 14px 7px 32px', borderRadius: 8,
+        fontSize: 12, fontWeight: 500, cursor: 'pointer',
+        transition: 'all 0.2s',
+        color: active ? '#111' : hovered ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
+        background: active
+          ? 'linear-gradient(135deg, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.02) 100%)'
+          : hovered ? 'rgba(0,0,0,0.03)' : 'none',
+      }}
+    >
+      <span style={{ width: 14, height: 14, display: 'flex', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' } as React.CSSProperties}>
         {icon}
       </span>
       {label}
