@@ -531,6 +531,8 @@ export default function App() {
                         )}
                       </div>
 
+                      <div style={{ flex: 1 }} />
+
                       <div style={{ ...detailCardStyle, textAlign: 'center' }}>
                         <h3 style={sectionHeaderStyle}>AR Quick Link</h3>
                         <QRCode url={selectedModel.arUrl} size={180} label="Scan to view in AR" />
