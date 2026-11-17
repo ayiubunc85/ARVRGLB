@@ -16,6 +16,8 @@ declare namespace JSX {
         exposure?: string;
         bounds?: string;
         poster?: string;
+        'tone-mapping'?: string;
+        'skybox-image'?: string;
       },
       HTMLElement
     >;

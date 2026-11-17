@@ -44,6 +44,8 @@ export default function App() {
   const [lightShadow, setLightShadow] = useState(0.4);
   const [lightSoftness, setLightSoftness] = useState(0.5);
   const [lightEnv, setLightEnv] = useState<'neutral' | 'legacy' | 'studio_small' | 'studio_loft' | 'outdoor' | 'hotel_room' | 'brown_studio'>('neutral');
+  const [toneMapping, setToneMapping] = useState<'commerce' | 'neutral' | 'agx'>('commerce');
+  const [showSkybox, setShowSkybox] = useState(false);
   const [showLightPanel, setShowLightPanel] = useState(false);
   const [modelData, setModelData] = useState<{
     vertices: number; triangles: number; materials: number;
@@ -537,6 +539,8 @@ export default function App() {
                       shadowIntensity={lightShadow}
                       shadowSoftness={lightSoftness}
                       environmentImage={lightEnv}
+                      toneMapping={toneMapping}
+                      showSkybox={showSkybox}
                     />
                   </div>
                   {showLightPanel && (
@@ -568,10 +572,41 @@ export default function App() {
                           ))}
                         </div>
                       </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 10, color: 'rgba(0,0,0,0.35)' }}>Tone</span>
+                          <div style={{ display: 'flex', gap: 3 }}>
+                            {([
+                              ['commerce', 'Commerce'],
+                              ['agx', 'AgX'],
+                              ['neutral', 'Flat'],
+                            ] as const).map(([tm, label]) => (
+                              <button key={tm} onClick={() => setToneMapping(tm)} style={{
+                                padding: '3px 7px', borderRadius: 5, border: 'none', cursor: 'pointer',
+                                fontSize: 10, fontWeight: 500,
+                                background: toneMapping === tm ? 'rgba(0,0,0,0.08)' : 'transparent',
+                                color: toneMapping === tm ? '#111' : 'rgba(0,0,0,0.35)',
+                              }}>{label}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <button onClick={() => setShowSkybox(!showSkybox)} style={{
+                          padding: '3px 8px', borderRadius: 5, border: 'none', cursor: 'pointer',
+                          fontSize: 10, fontWeight: 500,
+                          background: showSkybox ? 'rgba(0,0,0,0.08)' : 'transparent',
+                          color: showSkybox ? '#111' : 'rgba(0,0,0,0.35)',
+                          display: 'flex', alignItems: 'center', gap: 4,
+                        }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 014 10 15 15 0 01-4 10 15 15 0 01-4-10 15 15 0 014-10z"/>
+                          </svg>
+                          Skybox
+                        </button>
+                      </div>
                       <LightSlider label="Exposure" value={lightExposure} min={0.2} max={3} step={0.1} onChange={setLightExposure} />
                       <LightSlider label="Shadow" value={lightShadow} min={0} max={2} step={0.1} onChange={setLightShadow} />
                       <LightSlider label="Softness" value={lightSoftness} min={0} max={1} step={0.05} onChange={setLightSoftness} />
-                      <button onClick={() => { setLightExposure(1.0); setLightShadow(0.4); setLightSoftness(0.5); setLightEnv('neutral'); }} style={{
+                      <button onClick={() => { setLightExposure(1.0); setLightShadow(0.4); setLightSoftness(0.5); setLightEnv('neutral'); setToneMapping('commerce'); setShowSkybox(false); }} style={{
                         padding: '4px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
                         fontSize: 11, fontWeight: 600, background: 'rgba(0,0,0,0.04)', color: 'rgba(0,0,0,0.35)',
                       }}>Reset</button>

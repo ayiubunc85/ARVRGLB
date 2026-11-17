@@ -8,6 +8,8 @@ interface ModelPreviewProps {
   shadowIntensity?: number;
   shadowSoftness?: number;
   environmentImage?: string;
+  toneMapping?: string;
+  showSkybox?: boolean;
 }
 
 function filterOversizedMesh(buf: ArrayBuffer): string | null {
@@ -97,8 +99,9 @@ const ENV_MAP: Record<string, string> = {
   brown_studio: '/envmaps/brown_studio.hdr',
 };
 
-export default function ModelPreview({ src, style, disableFilter, exposure = 1, shadowIntensity = 0.4, shadowSoftness = 0.5, environmentImage = 'neutral' }: ModelPreviewProps) {
+export default function ModelPreview({ src, style, disableFilter, exposure = 1, shadowIntensity = 0.4, shadowSoftness = 0.5, environmentImage = 'neutral', toneMapping = 'commerce', showSkybox = false }: ModelPreviewProps) {
   const envSrc = ENV_MAP[environmentImage] || environmentImage;
+  const skyboxSrc = showSkybox ? envSrc : undefined;
   const containerRef = useRef<HTMLDivElement>(null);
   const [previewSrc, setPreviewSrc] = useState(src);
   const blobUrlRef = useRef<string | null>(null);
@@ -156,6 +159,8 @@ export default function ModelPreview({ src, style, disableFilter, exposure = 1, 
         shadow-softness={String(shadowSoftness)}
         exposure={String(exposure)}
         environment-image={envSrc}
+        skybox-image={skyboxSrc}
+        tone-mapping={toneMapping}
         bounds="tight"
         style={{
           width: '100%',
