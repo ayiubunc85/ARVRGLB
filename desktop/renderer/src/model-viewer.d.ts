@@ -10,8 +10,11 @@ declare namespace JSX {
         'disable-zoom'?: boolean | string;
         'interaction-prompt'?: string;
         'shadow-intensity'?: string;
+        'shadow-softness'?: string;
         'environment-image'?: string;
         'camera-orbit'?: string;
+        exposure?: string;
+        bounds?: string;
         poster?: string;
       },
       HTMLElement

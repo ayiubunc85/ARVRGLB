@@ -40,6 +40,11 @@ export default function App() {
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [detailTab, setDetailTab] = useState<'info' | 'optimize' | 'usdz'>('info');
+  const [lightExposure, setLightExposure] = useState(1.0);
+  const [lightShadow, setLightShadow] = useState(0.4);
+  const [lightSoftness, setLightSoftness] = useState(0.5);
+  const [lightEnv, setLightEnv] = useState<'neutral' | 'legacy'>('neutral');
+  const [showLightPanel, setShowLightPanel] = useState(false);
   const [modelData, setModelData] = useState<{
     vertices: number; triangles: number; materials: number;
     textures: { name: string; mimeType: string; sizeKB: number }[];
@@ -483,7 +488,41 @@ export default function App() {
                       src={`${API_BASE}/models/${selectedModel.filename}`}
                       style={{ width: '100%', height: '100%' }}
                       disableFilter
+                      exposure={lightExposure}
+                      shadowIntensity={lightShadow}
+                      shadowSoftness={lightSoftness}
+                      environmentImage={lightEnv}
                     />
+                    {showLightPanel && (
+                      <div style={{
+                        position: 'absolute', bottom: 60, left: 16, right: 16,
+                        background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(20px)',
+                        borderRadius: 14, padding: '14px 16px',
+                        display: 'flex', flexDirection: 'column', gap: 10,
+                        zIndex: 5,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 0.6 }}>Lighting</span>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            {(['neutral', 'legacy'] as const).map(env => (
+                              <button key={env} onClick={() => setLightEnv(env)} style={{
+                                padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                                fontSize: 11, fontWeight: 500,
+                                background: lightEnv === env ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)',
+                                color: lightEnv === env ? '#fff' : 'rgba(255,255,255,0.5)',
+                              }}>{env === 'neutral' ? 'Neutral' : 'Studio'}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <LightSlider label="Exposure" value={lightExposure} min={0.2} max={3} step={0.1} onChange={setLightExposure} />
+                        <LightSlider label="Shadow" value={lightShadow} min={0} max={2} step={0.1} onChange={setLightShadow} />
+                        <LightSlider label="Softness" value={lightSoftness} min={0} max={1} step={0.05} onChange={setLightSoftness} />
+                        <button onClick={() => { setLightExposure(1); setLightShadow(0.4); setLightSoftness(0.5); setLightEnv('neutral'); }} style={{
+                          padding: '5px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
+                          fontSize: 11, fontWeight: 600, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)',
+                        }}>Reset</button>
+                      </div>
+                    )}
                   </div>
                   <div style={{
                     padding: '16px 20px',
@@ -493,7 +532,18 @@ export default function App() {
                     <h2 style={{ fontSize: 18, fontWeight: 700, textTransform: 'capitalize' }}>
                       {selectedModel.id.replace(/[-_]/g, ' ')}
                     </h2>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <button onClick={() => setShowLightPanel(!showLightPanel)} title="Lighting" style={{
+                        width: 30, height: 30, borderRadius: 8, border: 'none', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: showLightPanel ? 'rgba(0,0,0,0.08)' : 'transparent',
+                        color: showLightPanel ? '#111' : 'rgba(0,0,0,0.3)',
+                        transition: 'all 0.2s',
+                      }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                        </svg>
+                      </button>
                       <span style={tagStyle}>{selectedModel.format.toUpperCase()}</span>
                       {selectedModel.hasUsdz && <span style={{ ...tagStyle, background: 'rgba(0,0,0,0.05)', color: 'rgba(0,0,0,0.55)' }}>USDZ</span>}
                     </div>
@@ -723,6 +773,23 @@ function TextureRow({ count, textures }: { count: number; textures: { name: stri
         </div>,
         document.body
       )}
+    </div>
+  );
+}
+
+function LightSlider({ label, value, min, max, step, onChange }: {
+  label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', minWidth: 48 }}>{label}</span>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={e => onChange(parseFloat(e.target.value))}
+        style={{ flex: 1, height: 3, accentColor: '#888' }}
+      />
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', minWidth: 28, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+        {value.toFixed(1)}
+      </span>
     </div>
   );
 }

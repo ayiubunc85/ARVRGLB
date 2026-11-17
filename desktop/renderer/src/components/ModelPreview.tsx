@@ -4,6 +4,10 @@ interface ModelPreviewProps {
   src: string;
   style?: React.CSSProperties;
   disableFilter?: boolean;
+  exposure?: number;
+  shadowIntensity?: number;
+  shadowSoftness?: number;
+  environmentImage?: string;
 }
 
 function filterOversizedMesh(buf: ArrayBuffer): string | null {
@@ -83,7 +87,7 @@ function filterOversizedMesh(buf: ArrayBuffer): string | null {
   }
 }
 
-export default function ModelPreview({ src, style, disableFilter }: ModelPreviewProps) {
+export default function ModelPreview({ src, style, disableFilter, exposure = 1, shadowIntensity = 0.4, shadowSoftness = 0.5, environmentImage = 'neutral' }: ModelPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [previewSrc, setPreviewSrc] = useState(src);
   const blobUrlRef = useRef<string | null>(null);
@@ -136,10 +140,11 @@ export default function ModelPreview({ src, style, disableFilter }: ModelPreview
         auto-rotate-delay="0"
         rotation-per-second="20deg"
         camera-controls
-        disable-zoom
         interaction-prompt="none"
-        shadow-intensity="0.4"
-        environment-image="neutral"
+        shadow-intensity={String(shadowIntensity)}
+        shadow-softness={String(shadowSoftness)}
+        exposure={String(exposure)}
+        environment-image={environmentImage}
         bounds="tight"
         style={{
           width: '100%',
