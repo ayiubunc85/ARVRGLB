@@ -43,7 +43,7 @@ export default function App() {
   const [lightExposure, setLightExposure] = useState(1.0);
   const [lightShadow, setLightShadow] = useState(0.4);
   const [lightSoftness, setLightSoftness] = useState(0.5);
-  const [lightEnv, setLightEnv] = useState<'neutral' | 'legacy' | 'studio' | 'outdoor' | 'interior'>('neutral');
+  const [lightEnv, setLightEnv] = useState<'neutral' | 'legacy' | 'studio_small' | 'studio_loft' | 'outdoor' | 'hotel_room' | 'brown_studio'>('neutral');
   const [showLightPanel, setShowLightPanel] = useState(false);
   const [modelData, setModelData] = useState<{
     vertices: number; triangles: number; materials: number;
@@ -547,15 +547,17 @@ export default function App() {
                       backdropFilter: 'blur(20px)',
                       display: 'flex', flexDirection: 'column', gap: 8,
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(0,0,0,0.4)', textTransform: 'uppercase', letterSpacing: 0.6 }}>Lighting</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(0,0,0,0.4)', textTransform: 'uppercase', letterSpacing: 0.6 }}>Environment</span>
                         <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                           {([
                             ['neutral', 'Neutral'],
                             ['legacy', 'Legacy'],
-                            ['studio', 'Studio'],
+                            ['studio_small', 'Studio'],
+                            ['studio_loft', 'Loft'],
                             ['outdoor', 'Outdoor'],
-                            ['interior', 'Interior'],
+                            ['hotel_room', 'Hotel'],
+                            ['brown_studio', 'Warm'],
                           ] as const).map(([env, label]) => (
                             <button key={env} onClick={() => setLightEnv(env)} style={{
                               padding: '4px 8px', borderRadius: 6, border: 'none', cursor: 'pointer',

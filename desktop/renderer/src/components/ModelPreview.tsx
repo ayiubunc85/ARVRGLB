@@ -90,9 +90,11 @@ function filterOversizedMesh(buf: ArrayBuffer): string | null {
 const ENV_MAP: Record<string, string> = {
   neutral: 'neutral',
   legacy: 'legacy',
-  studio: '/envmaps/studio.png',
-  outdoor: '/envmaps/outdoor.png',
-  interior: '/envmaps/interior.png',
+  studio_small: '/envmaps/studio_small.hdr',
+  studio_loft: '/envmaps/studio_loft.hdr',
+  outdoor: '/envmaps/outdoor.hdr',
+  hotel_room: '/envmaps/hotel_room.hdr',
+  brown_studio: '/envmaps/brown_studio.hdr',
 };
 
 export default function ModelPreview({ src, style, disableFilter, exposure = 1, shadowIntensity = 0.4, shadowSoftness = 0.5, environmentImage = 'neutral' }: ModelPreviewProps) {
