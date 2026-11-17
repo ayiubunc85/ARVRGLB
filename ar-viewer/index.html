@@ -332,10 +332,22 @@
             <span class="angle" id="lightAngleText">0°</span>
             <button id="lightRotR">&#x25B6;</button>
           </div>
+        </div>
+        <div style="width:100%;display:flex;flex-direction:column;gap:4px;margin-top:4px;">
           <div class="ar-slider-row">
-            <label>Intensity</label>
-            <input type="range" id="lightIntensity" min="0" max="500" value="120" step="10">
-            <span class="val" id="lightIntVal">1.2</span>
+            <label>Sun</label>
+            <input type="range" id="lightSunSlider" min="0" max="300" value="100" step="5">
+            <span class="val" id="lightSunVal">1.0</span>
+          </div>
+          <div class="ar-slider-row">
+            <label>Ambient</label>
+            <input type="range" id="lightAmbientSlider" min="0" max="300" value="100" step="5">
+            <span class="val" id="lightAmbientVal">1.0</span>
+          </div>
+          <div class="ar-slider-row">
+            <label>Env Map</label>
+            <input type="range" id="lightEnvSlider" min="0" max="300" value="100" step="5">
+            <span class="val" id="lightEnvVal">1.0</span>
           </div>
         </div>
       </div>
@@ -649,8 +661,12 @@
     const lightRotL = document.getElementById('lightRotL');
     const lightRotR = document.getElementById('lightRotR');
     const lightAngleText = document.getElementById('lightAngleText');
-    const lightIntensitySlider = document.getElementById('lightIntensity');
-    const lightIntVal = document.getElementById('lightIntVal');
+    const lightSunSlider = document.getElementById('lightSunSlider');
+    const lightSunVal = document.getElementById('lightSunVal');
+    const lightAmbientSlider = document.getElementById('lightAmbientSlider');
+    const lightAmbientVal = document.getElementById('lightAmbientVal');
+    const lightEnvSlider = document.getElementById('lightEnvSlider');
+    const lightEnvVal = document.getElementById('lightEnvVal');
     const viewerEl = document.getElementById('viewer');
 
     // Global cleanup — called on any exit path
@@ -929,19 +945,30 @@
       const LIGHT_RADIUS = 1.5;
       const LIGHT_HEIGHT = 1.5;
 
-      let studioIntensity = 1.2;
+      let sunIntensity = 1.0;
+      let ambientIntensity = 1.0;
+      let envMapIntensity = 1.0;
 
-      function applyStudioLight() {
-        const rad = lightAngle * Math.PI / 180;
-        dirLight.position.set(
-          Math.sin(rad) * LIGHT_RADIUS,
-          LIGHT_HEIGHT,
-          Math.cos(rad) * LIGHT_RADIUS
-        );
-        dirLight.intensity = studioIntensity * 1.5;
-        dirLight.color.setHex(0xffffff);
-        hemiLight.intensity = Math.min(studioIntensity * 0.8, 2.5);
-        renderer.toneMappingExposure = 0.5 + studioIntensity * 0.6;
+      function applyLightValues() {
+        if (lightMode === 'studio') {
+          const rad = lightAngle * Math.PI / 180;
+          dirLight.position.set(
+            Math.sin(rad) * LIGHT_RADIUS,
+            LIGHT_HEIGHT,
+            Math.cos(rad) * LIGHT_RADIUS
+          );
+          dirLight.color.setHex(0xffffff);
+        }
+        dirLight.intensity = sunIntensity;
+        hemiLight.intensity = ambientIntensity;
+        if (modelGroup) {
+          modelGroup.traverse(child => {
+            if (child.isMesh) {
+              const mats = Array.isArray(child.material) ? child.material : [child.material];
+              mats.forEach(m => { if (m.envMapIntensity !== undefined) m.envMapIntensity = envMapIntensity; });
+            }
+          });
+        }
       }
 
       function setLightMode(mode, e) {
@@ -950,7 +977,7 @@
         lightAutoBtn.classList.toggle('active', mode === 'auto');
         lightStudioBtn.classList.toggle('active', mode === 'studio');
         lightStudioControls.style.display = mode === 'studio' ? 'block' : 'none';
-        if (mode === 'studio') applyStudioLight();
+        if (mode === 'studio') applyLightValues();
         else renderer.toneMappingExposure = 1.0;
       }
 
@@ -958,7 +985,7 @@
         if (e) { e.preventDefault(); e.stopPropagation(); }
         lightAngle = (lightAngle + deg + 360) % 360;
         lightAngleText.textContent = lightAngle + '°';
-        if (lightMode === 'studio') applyStudioLight();
+        if (lightMode === 'studio') applyLightValues();
       }
 
       lightAutoBtn.ontouchend = e => setLightMode('auto', e);
@@ -970,10 +997,20 @@
       lightRotR.ontouchend = e => rotateLightBy(10, e);
       lightRotR.onclick = e => rotateLightBy(10, e);
 
-      lightIntensitySlider.addEventListener('input', function() {
-        studioIntensity = parseFloat(this.value) / 100;
-        lightIntVal.textContent = studioIntensity.toFixed(1);
-        if (lightMode === 'studio') applyStudioLight();
+      lightSunSlider.addEventListener('input', function() {
+        sunIntensity = parseFloat(this.value) / 100;
+        lightSunVal.textContent = sunIntensity.toFixed(1);
+        applyLightValues();
+      });
+      lightAmbientSlider.addEventListener('input', function() {
+        ambientIntensity = parseFloat(this.value) / 100;
+        lightAmbientVal.textContent = ambientIntensity.toFixed(1);
+        applyLightValues();
+      });
+      lightEnvSlider.addEventListener('input', function() {
+        envMapIntensity = parseFloat(this.value) / 100;
+        lightEnvVal.textContent = envMapIntensity.toFixed(1);
+        applyLightValues();
       });
 
 
@@ -1097,7 +1134,7 @@
               estimate.primaryLightIntensity.y,
               estimate.primaryLightIntensity.z
             );
-            dirLight.intensity = Math.min(i, 3.0);
+            dirLight.intensity = Math.min(i, 3.0) * sunIntensity;
             dirLight.color.setRGB(
               estimate.primaryLightIntensity.x / (i || 1),
               estimate.primaryLightIntensity.y / (i || 1),
@@ -1107,7 +1144,7 @@
             if (dir) dirLight.position.set(dir.x, dir.y, dir.z);
             const sh = estimate.sphericalHarmonicsCoefficients;
             if (sh && sh.length >= 9) {
-              hemiLight.intensity = Math.min(Math.sqrt(sh[0]*sh[0] + sh[1]*sh[1] + sh[2]*sh[2]), 2.0);
+              hemiLight.intensity = Math.min(Math.sqrt(sh[0]*sh[0] + sh[1]*sh[1] + sh[2]*sh[2]), 2.0) * ambientIntensity;
             }
           }
         }
@@ -1190,7 +1227,7 @@
               mat.ior = mat.ior || 1.6;
               mat.roughness = 0;
               mat.metalness = 0;
-              mat.envMapIntensity = 1.5;
+              mat.envMapIntensity = envMapIntensity * 1.5;
               mat.clearcoat = 0.3;
               mat.clearcoatRoughness = 0.05;
               mat.transparent = false;
@@ -1198,7 +1235,7 @@
               mat.side = THREE.DoubleSide;
               mat.needsUpdate = true;
             } else {
-              mat.envMapIntensity = Math.max(mat.envMapIntensity || 1, 1.0);
+              mat.envMapIntensity = envMapIntensity;
             }
           });
         });
