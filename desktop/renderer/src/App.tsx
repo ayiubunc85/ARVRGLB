@@ -25,7 +25,7 @@ interface ModelEntry {
   hasUsdz?: boolean;
 }
 
-type View = 'dashboard' | 'detail';
+type View = 'dashboard' | 'library' | 'detail';
 
 const API_BASE = '';
 
@@ -245,7 +245,7 @@ export default function App() {
         <nav style={{ padding: '12px 12px 8px' }}>
           <NavItem active={view === 'dashboard'} onClick={goBack} label="Dashboard"
             icon={<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>} />
-          <NavItem active={view === 'detail' && detailTab === 'info'} onClick={() => { if (view === 'detail') setDetailTab('info'); else if (models.length > 0) openModel(models[0].id); }} label="Models"
+          <NavItem active={view === 'library' || (view === 'detail' && detailTab === 'info')} onClick={() => { if (view === 'detail') setDetailTab('info'); else setView('library'); }} label="Models"
             icon={<svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>} />
           {view === 'detail' && (
             <>
@@ -313,7 +313,7 @@ export default function App() {
 
       {/* ── Main ── */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {view === 'dashboard' ? (
+        {view === 'dashboard' && (
           <>
             <div style={{ padding: '20px 32px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.3)' }}>
@@ -391,15 +391,64 @@ export default function App() {
                   <h3 style={sectionHeaderStyle}>Quick Actions</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <QuickBtn label="Import Model" onClick={() => fileInputRef.current?.click()} />
-                    <QuickBtn label="Batch Optimize" onClick={() => { if (models.length > 0) openModel(models[0].id); }} />
-                    <QuickBtn label="Generate QR" onClick={() => { if (models.length > 0) openModel(models[0].id); }} />
-                    <QuickBtn label="View Models" onClick={() => { if (models.length > 0) openModel(models[0].id); }} />
+                    <QuickBtn label="Batch Optimize" onClick={() => setView('library')} />
+                    <QuickBtn label="Generate QR" onClick={() => setView('library')} />
+                    <QuickBtn label="View Models" onClick={() => setView('library')} />
                   </div>
                 </div>
               </div>
             </div>
           </>
-        ) : (
+        )}
+
+        {view === 'library' && (
+          <>
+            <div style={{ padding: '20px 32px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span onClick={goBack} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'rgba(0,0,0,0.3)' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="15 18 9 12 15 6"/>
+                  </svg>
+                </span>
+                <span onClick={goBack} style={{ cursor: 'pointer' }}>Dashboard</span>
+                {' / '}
+                <strong style={{ color: '#111', fontWeight: 600 }}>Models</strong>
+              </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                style={{ ...primaryBtnStyle, opacity: uploading ? 0.6 : 1, cursor: uploading ? 'default' : 'pointer' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                  <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                {uploading ? 'Importing...' : 'Import'}
+              </button>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', padding: '20px 32px 32px' }}>
+              {models.length === 0 ? (
+                <div style={{ ...glassCard, padding: 48, textAlign: 'center' }}>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth="1.5" style={{ marginBottom: 16 }}>
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                  </svg>
+                  <p style={{ fontSize: 14, color: 'rgba(0,0,0,0.4)' }}>No models yet</p>
+                  <p style={{ fontSize: 13, color: 'rgba(0,0,0,0.25)', marginTop: 8 }}>
+                    Click Import to add .glb or .usdz files
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
+                  {models.map(model => (
+                    <ModelCard key={model.id} model={model} onSelect={openModel} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {view === 'detail' && (
           <>
             <div style={{ padding: '18px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -410,7 +459,7 @@ export default function App() {
                 </span>
                 <span onClick={goBack} style={{ cursor: 'pointer' }}>Dashboard</span>
                 {' / '}
-                <span onClick={goBack} style={{ cursor: 'pointer' }}>Models</span>
+                <span onClick={() => setView('library')} style={{ cursor: 'pointer' }}>Models</span>
                 {' / '}
                 <strong style={{ color: '#111', fontWeight: 600, textTransform: 'capitalize' }}>
                   {selectedModel ? selectedModel.id.replace(/[-_]/g, ' ') : ''}
