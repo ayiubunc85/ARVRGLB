@@ -502,24 +502,8 @@
         startLoading();
       });
 
-      // AR button — WebXR requires HTTPS. If we're on HTTP, redirect to HTTPS.
+      // AR button — start custom WebXR AR
       arBtn.addEventListener('click', async function () {
-        if (window.location.protocol === 'http:') {
-          try {
-            var info = await fetch(baseUrl + '/api/info').then(function(r){ return r.json(); });
-            var httpsPort = info.httpsPort;
-            if (!httpsPort) throw new Error('No HTTPS');
-            var httpsUrl = 'https://' + window.location.hostname + ':' + httpsPort + window.location.pathname;
-            try { sessionStorage.setItem('ar-autolaunch', '1'); } catch(e) {}
-            window.location.href = httpsUrl;
-          } catch(e) {
-            noArNotice.textContent = 'HTTPS required for AR. Could not get server info.';
-            noArNotice.classList.add('visible');
-            setTimeout(function () { noArNotice.classList.remove('visible'); }, 5000);
-          }
-          return;
-        }
-
         if (typeof window.startCustomAR === 'function') {
           arBtn.classList.remove('visible');
           infoBar.classList.remove('visible');
@@ -640,27 +624,16 @@
             }).catch(function(err) { console.log('Three.js import failed:', err); });
           }
 
-          // Check if WebXR AR is available (or if we're on HTTP where it'll redirect)
+          // Check if WebXR AR is available
           setTimeout(async function () {
             var arAvailable = false;
             if (navigator.xr) {
               try { arAvailable = await navigator.xr.isSessionSupported('immersive-ar'); } catch (e) {}
             }
-            // On HTTP, show the AR button anyway — it will redirect to HTTPS
-            var isHttp = window.location.protocol === 'http:';
-            if (arAvailable || isHttp) {
+            if (arAvailable) {
               arBtn.classList.add('visible');
-              // Auto-launch AR if we just redirected from HTTP
-              if (arAvailable) {
-                try {
-                  if (sessionStorage.getItem('ar-autolaunch')) {
-                    sessionStorage.removeItem('ar-autolaunch');
-                    arBtn.click();
-                  }
-                } catch(e) {}
-              }
             } else {
-              noArNotice.textContent = 'AR requires an AR-capable device with Chrome.';
+              noArNotice.textContent = 'AR requires HTTPS and an AR-capable device with Chrome.';
               noArNotice.classList.add('visible');
             }
           }, 300);

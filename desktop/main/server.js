@@ -229,7 +229,7 @@ function startServer(port = 3456) {
               sizeBytes: stats.size,
               sizeMB: (stats.size / (1024 * 1024)).toFixed(2),
               modified: stats.mtime,
-              arUrl: `${getHttpUrl()}/ar/${id}`,
+              arUrl: `${getServerUrl()}/ar/${id}`,
               hasUsdz: ext === '.usdz',
             });
           }
@@ -262,9 +262,9 @@ function startServer(port = 3456) {
         hasUsdz,
         glbSizeMB: glbStats ? (glbStats.size / (1024 * 1024)).toFixed(2) : null,
         usdzSizeMB: usdzStats ? (usdzStats.size / (1024 * 1024)).toFixed(2) : null,
-        arUrl: `${getHttpUrl()}/ar/${modelId}`,
-        glbUrl: hasGlb ? `${getHttpUrl()}/models/${modelId}.glb` : null,
-        usdzUrl: hasUsdz ? `${getHttpUrl()}/models/${modelId}.usdz` : null,
+        arUrl: `${getServerUrl()}/ar/${modelId}`,
+        glbUrl: hasGlb ? `${getServerUrl()}/models/${modelId}.glb` : null,
+        usdzUrl: hasUsdz ? `${getServerUrl()}/models/${modelId}.usdz` : null,
       });
     });
 
