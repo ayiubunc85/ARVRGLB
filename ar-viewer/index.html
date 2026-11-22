@@ -127,7 +127,7 @@
       display: flex; align-items: center; gap: 10px;
       pointer-events: none; z-index: 210;
     }
-    .ar-close-btn {
+    .ar-close-btn, .ar-screenshot-btn {
       width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
       background: rgba(0,0,0,0.55); backdrop-filter: blur(12px);
       border: 1.5px solid rgba(255,255,255,0.25);
@@ -135,7 +135,30 @@
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; pointer-events: auto;
     }
-    .ar-close-btn:active { background: rgba(0,0,0,0.75); }
+    .ar-close-btn:active, .ar-screenshot-btn:active { background: rgba(0,0,0,0.75); }
+    .ar-screenshot-btn svg { width: 20px; height: 20px; fill: none; stroke: white; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .ar-screenshot-btn.capturing { background: rgba(255,255,255,0.8); transition: background 0.1s; }
+
+    .ar-shutter-flash {
+      position: fixed; inset: 0; background: white; z-index: 250;
+      opacity: 0; pointer-events: none;
+      animation: shutterFlash 0.3s ease-out forwards;
+    }
+    @keyframes shutterFlash {
+      0% { opacity: 0.7; }
+      100% { opacity: 0; }
+    }
+
+    .ar-screenshot-toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(12px);
+      border-radius: 12px; padding: 10px 20px;
+      font-size: 13px; color: white; z-index: 260;
+      opacity: 0; transition: opacity 0.3s ease;
+      pointer-events: none; white-space: nowrap;
+    }
+    .ar-screenshot-toast.visible { opacity: 1; }
+
     .ar-guide-pill {
       flex: 1; text-align: center;
       background: rgba(0,0,0,0.55); backdrop-filter: blur(12px);
@@ -279,7 +302,11 @@
     <div class="ar-top-bar">
       <button class="ar-close-btn" id="arCloseBtn">&times;</button>
       <span class="ar-guide-pill" id="arGuideText">Move your phone slowly to scan the floor</span>
+      <button class="ar-screenshot-btn" id="arScreenshotBtn">
+        <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="14" rx="2"/><circle cx="12" cy="13" r="4"/><path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6"/></svg>
+      </button>
     </div>
+    <div class="ar-screenshot-toast" id="arScreenshotToast"></div>
     <button class="ar-menu-toggle" id="arMenuToggle">
       <span class="scale-pill" id="arScaleText">—</span>
       <svg viewBox="0 0 24 24" style="width:14px;height:14px;"><polyline points="6 9 12 15 18 9"/></svg>
@@ -689,7 +716,7 @@
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
@@ -1115,7 +1142,116 @@
         if (Object.keys(touches).length < 2) pinchDist0 = 0;
       }, { passive: true });
 
-      // ── 7. Close button ──
+      // ── 7. Screenshot + Share ──
+      const screenshotBtn = document.getElementById('arScreenshotBtn');
+      const screenshotToast = document.getElementById('arScreenshotToast');
+      let screenshotBusy = false;
+
+      async function doScreenshot(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (screenshotBusy || !placed) return;
+        screenshotBusy = true;
+        screenshotBtn.classList.add('capturing');
+
+        try {
+          // Hide UI elements for clean capture
+          overlay.style.visibility = 'hidden';
+
+          // Grab the WebXR canvas
+          const xrCanvas = renderer.domElement;
+          const w = xrCanvas.width, h = xrCanvas.height;
+
+          // Compose final image on offscreen canvas
+          const out = document.createElement('canvas');
+          out.width = w;
+          out.height = h;
+          const ctx = out.getContext('2d');
+
+          // Draw the XR frame (3D model composited over camera)
+          ctx.drawImage(xrCanvas, 0, 0);
+
+          // Add watermark: model name + date, bottom-left
+          const displayName = (window.__arModelUrl || '').split('/').pop().replace('.glb','').replace(/[-_]/g, ' ') || 'AR View';
+          const date = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+          const fontSize = Math.round(w * 0.018);
+          ctx.font = `500 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+          ctx.textBaseline = 'bottom';
+
+          const line1 = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+          const line2 = date;
+          const pad = Math.round(w * 0.025);
+          const lineH = fontSize * 1.3;
+
+          // Semi-transparent background pill
+          const maxTextW = Math.max(ctx.measureText(line1).width, ctx.measureText(line2).width);
+          const pillW = maxTextW + pad * 2;
+          const pillH = lineH * 2 + pad * 1.2;
+          const pillX = pad;
+          const pillY = h - pad - pillH;
+          ctx.fillStyle = 'rgba(0,0,0,0.4)';
+          ctx.beginPath();
+          ctx.roundRect(pillX, pillY, pillW, pillH, fontSize * 0.4);
+          ctx.fill();
+
+          ctx.fillStyle = 'rgba(255,255,255,0.95)';
+          ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+          ctx.fillText(line1, pillX + pad, pillY + pad * 0.6 + lineH);
+          ctx.font = `400 ${Math.round(fontSize * 0.85)}px -apple-system, BlinkMacSystemFont, sans-serif`;
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.fillText(line2, pillX + pad, pillY + pad * 0.6 + lineH * 2);
+
+          // Restore UI
+          overlay.style.visibility = '';
+
+          // Shutter flash
+          const flash = document.createElement('div');
+          flash.className = 'ar-shutter-flash';
+          overlay.appendChild(flash);
+          setTimeout(() => flash.remove(), 400);
+
+          // Convert to blob
+          const blob = await new Promise(resolve => out.toBlob(resolve, 'image/png'));
+          const fileName = `${displayName.replace(/\s+/g, '-')}-AR-${Date.now()}.png`;
+          const file = new File([blob], fileName, { type: 'image/png' });
+
+          // Try Web Share API (native mobile share sheet)
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: line1 + ' — AR View',
+            });
+            showToast('Shared');
+          } else {
+            // Fallback: download
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            showToast('Saved to downloads');
+          }
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            showToast('Screenshot failed');
+            console.error('Screenshot error:', err);
+          }
+          overlay.style.visibility = '';
+        }
+        screenshotBtn.classList.remove('capturing');
+        screenshotBusy = false;
+      }
+
+      function showToast(msg) {
+        screenshotToast.textContent = msg;
+        screenshotToast.classList.add('visible');
+        setTimeout(() => screenshotToast.classList.remove('visible'), 2000);
+      }
+
+      screenshotBtn.ontouchend = doScreenshot;
+      screenshotBtn.onclick = doScreenshot;
+
+      // ── 8. Close button ──
       function doClose(e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
         try { session.end(); } catch (ex) { doCleanup(); }
@@ -1144,6 +1280,9 @@
         menuPanel.classList.remove('open');
         closeBtn.ontouchstart = null;
         closeBtn.onclick = null;
+        screenshotBtn.ontouchend = null;
+        screenshotBtn.onclick = null;
+        screenshotToast.classList.remove('visible');
         cleanupFn = null;
       }
       cleanupFn = doCleanup;
