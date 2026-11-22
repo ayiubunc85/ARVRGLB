@@ -10,6 +10,7 @@ interface ModelPreviewProps {
   environmentImage?: string;
   toneMapping?: string;
   showSkybox?: boolean;
+  envRotation?: number;
 }
 
 function filterOversizedMesh(buf: ArrayBuffer): string | null {
@@ -99,7 +100,7 @@ const ENV_MAP: Record<string, string> = {
   brown_studio: '/envmaps/brown_studio.hdr',
 };
 
-export default function ModelPreview({ src, style, disableFilter, exposure = 1, shadowIntensity = 0.4, shadowSoftness = 0.5, environmentImage = 'neutral', toneMapping = 'commerce', showSkybox = false }: ModelPreviewProps) {
+export default function ModelPreview({ src, style, disableFilter, exposure = 1, shadowIntensity = 0.4, shadowSoftness = 0.5, environmentImage = 'neutral', toneMapping = 'commerce', showSkybox = false, envRotation = 0 }: ModelPreviewProps) {
   const envSrc = ENV_MAP[environmentImage] || environmentImage;
   const skyboxSrc = showSkybox ? envSrc : undefined;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -144,6 +145,32 @@ export default function ModelPreview({ src, style, disableFilter, exposure = 1, 
       if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const mv = containerRef.current?.querySelector('model-viewer') as any;
+    if (!mv) return;
+
+    const rotationRad = (envRotation * Math.PI) / 180;
+
+    const applyRotation = () => {
+      try {
+        const symbols = Object.getOwnPropertySymbols(mv);
+        for (const sym of symbols) {
+          try {
+            const val = mv[sym];
+            if (val && typeof val === 'object' && val.isScene && val.environmentRotation) {
+              val.environmentRotation.y = rotationRad;
+              return;
+            }
+          } catch {}
+        }
+      } catch {}
+    };
+
+    applyRotation();
+    mv.addEventListener('environment-change', applyRotation);
+    return () => mv.removeEventListener('environment-change', applyRotation);
+  }, [envRotation]);
 
   return (
     <div ref={containerRef} style={style}>

@@ -46,6 +46,7 @@ export default function App() {
   const [lightEnv, setLightEnv] = useState<'neutral' | 'legacy' | 'studio_small' | 'studio_loft' | 'outdoor' | 'hotel_room' | 'brown_studio'>('outdoor');
   const [toneMapping, setToneMapping] = useState<'commerce' | 'neutral' | 'agx'>('agx');
   const [showSkybox, setShowSkybox] = useState(false);
+  const [envRotation, setEnvRotation] = useState(0);
   const [showLightPanel, setShowLightPanel] = useState(false);
   const [modelData, setModelData] = useState<{
     vertices: number; triangles: number; materials: number;
@@ -541,6 +542,7 @@ export default function App() {
                       environmentImage={lightEnv}
                       toneMapping={toneMapping}
                       showSkybox={showSkybox}
+                      envRotation={envRotation}
                     />
                   </div>
                   {showLightPanel && (
@@ -606,7 +608,8 @@ export default function App() {
                       <LightSlider label="Exposure" value={lightExposure} min={0.2} max={3} step={0.1} onChange={setLightExposure} />
                       <LightSlider label="Shadow" value={lightShadow} min={0} max={2} step={0.1} onChange={setLightShadow} />
                       <LightSlider label="Softness" value={lightSoftness} min={0} max={1} step={0.05} onChange={setLightSoftness} />
-                      <button onClick={() => { setLightExposure(1.0); setLightShadow(0.4); setLightSoftness(0.5); setLightEnv('outdoor'); setToneMapping('agx'); setShowSkybox(false); }} style={{
+                      <LightSlider label="Env Rotation" value={envRotation} min={0} max={360} step={1} onChange={setEnvRotation} />
+                      <button onClick={() => { setLightExposure(1.0); setLightShadow(0.4); setLightSoftness(0.5); setLightEnv('outdoor'); setToneMapping('agx'); setShowSkybox(false); setEnvRotation(0); }} style={{
                         padding: '4px 0', borderRadius: 6, border: 'none', cursor: 'pointer',
                         fontSize: 11, fontWeight: 600, background: 'rgba(0,0,0,0.04)', color: 'rgba(0,0,0,0.35)',
                       }}>Reset</button>
