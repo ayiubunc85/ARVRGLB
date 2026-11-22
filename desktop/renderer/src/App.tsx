@@ -5,6 +5,7 @@ import ModelPreview from './components/ModelPreview';
 import QRCode from './components/QRCode';
 import OptimizePanel from './components/OptimizePanel';
 import UsdzPanel from './components/UsdzPanel';
+import LightingPanel, { LightingSettings, defaultLighting } from './components/LightingPanel';
 
 interface ServerInfo {
   ip: string;
@@ -36,6 +37,7 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [lighting, setLighting] = useState<LightingSettings>(defaultLighting);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
 
@@ -407,6 +409,7 @@ export default function App() {
             {/* 3D Preview */}
             <ModelPreview
               src={`${API_BASE}/models/${selectedModel.filename}`}
+              lighting={lighting}
               style={{
                 width: '100%',
                 height: 200,
@@ -414,6 +417,12 @@ export default function App() {
                 borderRadius: 8,
                 overflow: 'hidden',
               }}
+            />
+
+            {/* Lighting controls */}
+            <LightingPanel
+              settings={lighting}
+              onChange={setLighting}
             />
 
             {/* QR Code */}
