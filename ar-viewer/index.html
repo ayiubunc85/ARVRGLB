@@ -968,7 +968,7 @@
               const mats = Array.isArray(child.material) ? child.material : [child.material];
               mats.forEach(m => {
                 if (m.envMapIntensity === undefined) return;
-                m.envMapIntensity = (m === glassMat) ? envMapIntensity * 2.0 : envMapIntensity;
+                m.envMapIntensity = (m === glassMat) ? envMapIntensity * 3.0 : envMapIntensity;
               });
             }
           });
@@ -1218,25 +1218,24 @@
         if (enableShadows) {
           model.traverse(child => { if (child.isMesh) child.castShadow = true; });
         }
-        // Replace glass materials with a full MeshPhysicalMaterial for realistic glass
+        // AR glass: transmission doesn't work in WebXR (the transmission render
+        // target captures transparent alpha instead of the camera feed), so we
+        // use reflections + alpha transparency to simulate glass in AR.
         glassMat = new THREE.MeshPhysicalMaterial({
-          color: new THREE.Color(0.08, 0.08, 0.09),
-          metalness: 0,
-          roughness: 0.03,
-          transmission: 0.92,
-          thickness: 1.5,
-          ior: 1.52,
-          envMapIntensity: envMapIntensity * 2.0,
+          color: new THREE.Color(0.7, 0.8, 0.9),
+          metalness: 0.1,
+          roughness: 0.05,
+          envMapIntensity: envMapIntensity * 3.0,
           clearcoat: 1.0,
-          clearcoatRoughness: 0.02,
-          reflectivity: 0.9,
+          clearcoatRoughness: 0.03,
+          reflectivity: 1.0,
           specularIntensity: 1.0,
           specularColor: new THREE.Color(1, 1, 1),
-          attenuationColor: new THREE.Color(0.85, 0.9, 0.95),
-          attenuationDistance: 0.5,
+          ior: 1.52,
+          transparent: true,
+          opacity: 0.18,
           side: THREE.DoubleSide,
-          transparent: false,
-          depthWrite: true,
+          depthWrite: false,
         });
         model.traverse(child => {
           if (!child.isMesh) return;
